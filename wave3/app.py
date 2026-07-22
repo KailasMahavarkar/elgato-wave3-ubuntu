@@ -182,9 +182,16 @@ class FieldRow:
 
 class Window(Adw.ApplicationWindow):
     def __init__(self, app, dev):
+        width, height = 1040, 700
+        size_override = os.environ.get("WAVE3_WINDOW_SIZE")
+        if size_override and "x" in size_override:
+            try:
+                width, height = (int(v) for v in size_override.lower().split("x", 1))
+            except ValueError:
+                pass
         super().__init__(
             application=app, title="Wave:3",
-            default_width=1040, default_height=700,
+            default_width=width, default_height=height,
         )
         self.dev = dev
         self.verified = load_verified()
@@ -291,8 +298,9 @@ class Window(Adw.ApplicationWindow):
             # rack output, which is the only honest pair available.
             capsule = mixer.resolve_node(mixer.WAVE3_SOURCE_MATCH, "Audio/Source")
             comp_devices = (capsule, fx.FX_SOURCE) if capsule else None
+            self.fx_page = FxPage(self.fx_runtime, rack, comp_devices)
             self.stack.add_titled_with_icon(
-                FxPage(self.fx_runtime, rack, comp_devices), "fx", "Effects",
+                self.fx_page, "fx", "Effects",
                 "applications-multimedia-symbolic",
             )
 
@@ -312,6 +320,17 @@ class Window(Adw.ApplicationWindow):
         # Mixer is the primary surface; the device page is a settings detour.
         if self.mixer_page is not None:
             self.stack.set_visible_child_name("mixer")
+
+        # Deep-link hooks: open straight to a tab, or an effect stage. Used for
+        # documentation captures and harmless otherwise.
+        start_tab = os.environ.get("WAVE3_START_TAB")
+        if start_tab:
+            self.stack.set_visible_child_name(start_tab)
+        fx_stage = os.environ.get("WAVE3_FX_STAGE")
+        if fx_stage and getattr(self, "fx_page", None) is not None:
+            match = next((e for e in self.fx_page.rack if e.ident == fx_stage), None)
+            if match is not None:
+                self.fx_page._select(match)
 
         header = Adw.HeaderBar()
         switcher = Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE)

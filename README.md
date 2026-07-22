@@ -13,6 +13,10 @@ Hardware controls, a dual-mix mixer, a live EQ curve and an effects rack - nativ
 [![PipeWire](https://img.shields.io/badge/PipeWire-1.0-3584E4?style=flat-square)](https://pipewire.org)
 [![LSP Plugins](https://img.shields.io/badge/DSP-LSP%20LADSPA-2E9E4F?style=flat-square)](https://lsp-plug.in)
 
+<br>
+
+<img src="docs/images/mixer.png" alt="Wave:3 mixer - nine channel strips with independent Stream and Monitor faders and live meters" width="90%">
+
 </div>
 
 ---
@@ -49,6 +53,23 @@ make run
 ```
 
 Then in OBS add an **Audio Input Capture** and pick **Monitor of Wave:3 Stream Mix**.
+
+## 📸 Screens
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/microphone.png" alt="Hardware control page with verified and guarded badges"><br><b>Microphone</b> - hardware controls, each badged <code>verified</code> or <code>guarded</code></td>
+<td width="50%"><img src="docs/images/eq.png" alt="Parametric EQ curve editor with six draggable band nodes"><br><b>Equaliser</b> - drag the coloured nodes; the curve is the one the filter runs</td>
+</tr>
+<tr>
+<td><img src="docs/images/compressor.png" alt="Compressor with a scrolling waveform and a draggable threshold line"><br><b>Compressor</b> - rolling waveform, drag the threshold line</td>
+<td><img src="docs/images/gate.png" alt="Noise gate threshold bar over a live level meter"><br><b>Noise gate</b> - set the threshold against your live level</td>
+</tr>
+<tr>
+<td><img src="docs/images/limiter.png" alt="Limiter ceiling bar over the chain output level"><br><b>Limiter</b> - the marker is your output ceiling</td>
+<td><img src="docs/images/deck.png" alt="Deck of large quick-action tiles with keyboard shortcuts"><br><b>Deck</b> - quick actions with number-key shortcuts for mid-stream</td>
+</tr>
+</table>
 
 ## 🏗️ How it works
 
@@ -114,7 +135,7 @@ Offsets 4 and 7 were confirmed by watching the hardware change them. The rest ca
 4. read back
 5. if **any** byte outside the target field moved, restore the original block and raise
 
-The UI badges each control `verified` or `guarded` accordingly. Move a physical control and the matching row promotes itself to `verified` permanently.
+The UI badges each control `verified` or `guarded` accordingly ([Microphone screen](docs/images/microphone.png)). Move a physical control and the matching row promotes itself to `verified` permanently.
 
 The DFU interface is never touched.
 
@@ -134,7 +155,7 @@ Ubuntu builds `libpipewire-module-filter-chain` **without** LV2 support - `strin
 
 Controls apply live via `pw-cli` param sets. No restart, no audio glitch.
 
-The EQ curve is computed from RBJ cookbook biquads, and every band's filter mode is pinned to APO (DR) - the plain digital biquad those equations describe - so the drawn curve is the curve the plugin actually runs.
+The EQ curve ([Equaliser screen](docs/images/eq.png)) is computed from RBJ cookbook biquads, and every band's filter mode is pinned to APO (DR) - the plain digital biquad those equations describe - so the drawn curve is the curve the plugin actually runs. The compressor, gate and limiter panels ([compressor](docs/images/compressor.png), [gate](docs/images/gate.png), [limiter](docs/images/limiter.png)) put a live meter behind the control you are setting.
 
 </details>
 
