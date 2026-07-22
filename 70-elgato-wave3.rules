@@ -1,0 +1,3 @@
+# Elgato Wave:3 vendor control interface - grant the logged-in user access
+# to endpoint 0 control transfers. Audio interfaces stay with snd-usb-audio.
+SUBSYSTEM=="usb", ATTR{idVendor}=="0fd9", ATTR{idProduct}=="0070", TAG+="uaccess"

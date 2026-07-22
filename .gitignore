@@ -1,0 +1,19 @@
+# Extracted Elgato application. Proprietary, must never be committed.
+research/wavelink-mac/
+
+# Raw strings and path dumps taken out of that binary. The written analysis
+# in research/dump/PROTOCOL.md is ours and does ship; these are not.
+research/dump/waveapi.strings
+research/dump/paths.txt
+research/dump/named_paths.txt
+
+# Clones of other projects, kept locally for reference only.
+research/openwave/
+research/tideline/
+research/openwave-config-backup/
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+Dockerfile*.test

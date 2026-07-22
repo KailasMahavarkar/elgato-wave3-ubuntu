@@ -1,0 +1,384 @@
+/* Wave:3 control panel styling. Single source, per DESIGN.md.
+   Dark only, compact density, exactly one interaction accent. Meter zone
+   colours live in widgets.py because they are drawn, not styled. */
+
+/* ---- channel strip ------------------------------------------------ */
+
+.channel-strip {
+  background-color: alpha(@card_bg_color, 0.6);
+  border-radius: 12px;
+  padding: 12px 10px;
+  min-width: 96px;
+  transition: background-color 120ms ease-out;
+}
+
+.channel-strip:hover {
+  background-color: alpha(@card_bg_color, 0.9);
+}
+
+.strip-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+}
+
+/* Reserved slot: present on every strip so faders share a baseline even
+   when only one channel carries a badge. */
+.strip-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  min-height: 16px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background-color: alpha(@accent_bg_color, 0.22);
+  color: @accent_fg_color;
+}
+
+.strip-badge.empty {
+  background-color: transparent;
+}
+
+/* Inset well with a visible rim, so the meter never reads as a third
+   fader trough. */
+.meter-frame {
+  background-color: alpha(#000000, 0.55);
+  border: 1px solid alpha(#000000, 0.7);
+  box-shadow: inset 0 1px 2px alpha(#000000, 0.6);
+  border-radius: 3px;
+  padding: 2px;
+  min-width: 14px;
+}
+
+/* ---- readouts ----------------------------------------------------- */
+
+/* Monospace and tabular so digits do not jitter while a fader moves.
+   Highest-value typography decision in the app. */
+.db-readout {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 500;
+  font-feature-settings: "tnum" 1;
+  opacity: 0.9;
+}
+
+.fader-caption {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  opacity: 0.55;
+}
+
+.master-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+/* Same inset treatment as the strip meters, otherwise the unlit bed is
+   indistinguishable from the window background and the row reads empty. */
+.master-meter {
+  padding: 8px 12px;
+  background-color: alpha(@card_bg_color, 0.5);
+  border-radius: 8px;
+}
+
+.master-meter-well {
+  background-color: alpha(#000000, 0.55);
+  border: 1px solid alpha(#000000, 0.7);
+  border-radius: 3px;
+  padding: 2px;
+}
+
+/* ---- fader -------------------------------------------------------- */
+
+scale.fader {
+  min-width: 30px;
+  padding: 0;
+}
+
+scale.fader trough {
+  min-width: 6px;
+  background-color: alpha(#000000, 0.45);
+  border-radius: 3px;
+}
+
+scale.fader highlight {
+  background-color: alpha(@accent_bg_color, 0.75);
+  border-radius: 3px;
+}
+
+/* Slider must be at least as large as the trough in both axes or GTK
+   computes a negative minimum and warns. Margin is what widens the handle
+   past the trough without breaking that constraint. */
+scale.fader slider {
+  min-width: 18px;
+  min-height: 18px;
+  margin: -6px;
+  border-radius: 4px;
+  background-color: @accent_bg_color;
+  box-shadow: 0 1px 2px alpha(#000000, 0.45);
+  transition: background-color 120ms ease-out;
+}
+
+scale.fader:hover slider {
+  background-color: shade(@accent_bg_color, 1.15);
+}
+
+scale.fader:disabled {
+  opacity: 0.5;
+}
+
+/* ---- mute + link -------------------------------------------------- */
+
+/* Mute carries an icon glyph, a border change AND colour, so colour is
+   never the sole state indicator. */
+.mute-button {
+  min-width: 30px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid alpha(@window_fg_color, 0.15);
+  background-image: none;
+  background-color: alpha(@window_fg_color, 0.06);
+}
+
+.mute-button image {
+  -gtk-icon-size: 14px;
+  opacity: 0.6;
+}
+
+.mute-button:checked image {
+  opacity: 1;
+}
+
+.mute-button:checked {
+  background-color: alpha(@warning_bg_color, 0.85);
+  color: @warning_fg_color;
+  border-color: @warning_bg_color;
+}
+
+.link-button {
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 6px;
+  background-image: none;
+  background-color: alpha(@window_fg_color, 0.06);
+  border: 1px solid alpha(@window_fg_color, 0.12);
+}
+
+.link-button:checked {
+  background-color: alpha(@accent_bg_color, 0.28);
+  border-color: alpha(@accent_bg_color, 0.7);
+  color: @accent_fg_color;
+}
+
+/* ---- fx chain ----------------------------------------------------- */
+
+.fx-stage {
+  background-color: alpha(@card_bg_color, 0.6);
+  border-radius: 10px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+}
+
+.fx-stage:hover {
+  background-color: alpha(@card_bg_color, 0.95);
+}
+
+.fx-stage.selected {
+  border-color: alpha(@accent_bg_color, 0.8);
+  background-color: alpha(@accent_bg_color, 0.12);
+}
+
+.fx-stage.bypassed {
+  opacity: 0.5;
+}
+
+.fx-stage-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.fx-arrow {
+  opacity: 0.35;
+  font-size: 14px;
+}
+
+.fx-arrow.bypassed {
+  opacity: 0.15;
+}
+
+.chain-caption {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  opacity: 0.45;
+}
+
+/* ---- misc --------------------------------------------------------- */
+
+.mixer-scroller {
+  padding: 8px 18px 18px 18px;
+}
+
+.strip-row {
+  padding-bottom: 4px;
+}
+
+.section-heading {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.5;
+}
+
+/* Focus ring: 2px accent with 2px offset on every interactive element. */
+scale.fader:focus-visible slider,
+.mute-button:focus-visible,
+.link-button:focus-visible,
+.fx-stage:focus-visible {
+  outline: 2px solid @accent_bg_color;
+  outline-offset: 2px;
+}
+
+/* ---- effects chain switches --------------------------------------- */
+
+/* A full-size switch dominates a compact chain node. */
+.stage-switch {
+  min-width: 38px;
+  min-height: 20px;
+}
+
+.stage-switch slider {
+  min-width: 16px;
+  min-height: 16px;
+}
+
+/* ---- master meter row --------------------------------------------- */
+
+.master-row {
+  padding: 12px 18px 4px 18px;
+}
+
+/* ---- deck tiles ---------------------------------------------------- */
+
+.deck-tile {
+  min-width: 132px;
+  min-height: 104px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  background-image: none;
+  background-color: alpha(@card_bg_color, 0.7);
+  border: 1px solid alpha(@window_fg_color, 0.08);
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+}
+
+.deck-tile:hover {
+  background-color: alpha(@card_bg_color, 1.0);
+  border-color: alpha(@window_fg_color, 0.18);
+}
+
+.deck-tile.engaged {
+  background-color: alpha(@accent_bg_color, 0.9);
+  border-color: @accent_bg_color;
+  color: @accent_fg_color;
+}
+
+.deck-tile.danger.engaged {
+  background-color: alpha(@error_bg_color, 0.9);
+  border-color: @error_bg_color;
+  color: @error_fg_color;
+}
+
+.deck-tile:disabled {
+  opacity: 0.5;
+}
+
+.tile-shortcut {
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.35;
+}
+
+.deck-tile.engaged .tile-shortcut {
+  opacity: 0.7;
+}
+
+.tile-icon {
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.deck-tile.engaged .tile-icon {
+  opacity: 1;
+}
+
+.tile-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Spells the state in words so colour is never the only indicator. */
+.tile-state {
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+}
+
+.deck-tile.engaged .tile-state {
+  opacity: 0.95;
+}
+
+/* ---- eq curve ------------------------------------------------------ */
+
+.eq-frame {
+  background-color: alpha(#000000, 0.32);
+  border: 1px solid alpha(#000000, 0.55);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.eq-readout {
+  font-family: monospace;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.eq-hint {
+  font-size: 10px;
+  opacity: 0.45;
+}
+
+/* ---- compressor ---------------------------------------------------- */
+
+.comp-plot {
+  border-radius: 6px;
+}
+
+/* ---- gate / limiter state ------------------------------------------ */
+
+.gate-state {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+.gate-state.closed {
+  opacity: 0.55;
+}
+
+.threshold-bar {
+  border-radius: 4px;
+}

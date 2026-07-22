@@ -1,0 +1,147 @@
+"""Peak level readers.
+
+One lightweight capture per metered node. PipeWire's own pw-cat/pw-record in
+1.0.5 have no raw-stream mode (only file output), so this uses the PulseAudio
+compatibility recorder, which does: `parecord --raw`.
+
+Each reader is 8 kHz mono s16 - about 16 KB/s - and lives on its own thread
+doing a blocking read. Threads only ever publish a float, so the GTK side can
+poll them without locking anything.
+"""
+
+import math
+import struct
+import subprocess
+import threading
+import time
+
+RATE = 8000
+CHUNK_BYTES = 512
+
+# parecord defaults to roughly a two second buffer and delivers audio in one
+# burst per buffer, which is useless for a 30 fps meter. Requesting a short
+# latency is what makes the stream continuous.
+LATENCY_MS = 30
+RESTART_DELAY = 1.0
+SILENCE_DB = -90.0
+
+# An idle PipeWire sink stops handing chunks to the recorder, which would
+# otherwise freeze the meter at whatever it last saw. Anything older than
+# STALE_AFTER is faded out rather than trusted.
+STALE_AFTER = 0.15
+STALE_FADE = 0.4
+
+
+def amplitude_to_db(amplitude):
+    return SILENCE_DB if amplitude <= 0.0 else max(SILENCE_DB, 20.0 * math.log10(amplitude))
+
+
+class PeakReader:
+    """Continuously reports the peak level of one PipeWire node."""
+
+    def __init__(self, device):
+        self.device = device
+        self.peak = 0.0
+        self._updated = 0.0
+        self._proc = None
+        self._thread = None
+        self._stop = threading.Event()
+
+    def start(self):
+        if self._thread is not None:
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        if self._proc is not None:
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self._proc.kill()
+            self._proc = None
+        self._thread = None
+        self.peak = 0.0
+        self._updated = 0.0
+
+    def _spawn(self):
+        return subprocess.Popen(
+            ["parecord", "--raw", "-d", self.device,
+             "--format=s16le", f"--rate={RATE}", "--channels=1",
+             f"--latency-msec={LATENCY_MS}"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0,
+        )
+
+    def _run(self):
+        """Read peaks, restarting the recorder if it ever exits.
+
+        A recorder can exit when its source disappears or suspends. Without a
+        restart the meter would be dead for the rest of the session, showing a
+        confident -90 that means "not measuring" rather than "silent".
+        """
+        while not self._stop.is_set():
+            try:
+                self._proc = self._spawn()
+            except OSError:
+                return
+
+            stream = self._proc.stdout
+            while not self._stop.is_set():
+                data = stream.read(CHUNK_BYTES)
+                if not data:
+                    break
+                count = len(data) // 2
+                if count == 0:
+                    continue
+                samples = struct.unpack(f"<{count}h", data[: count * 2])
+                self.peak = max(abs(s) for s in samples) / 32768.0
+                self._updated = time.monotonic()
+
+            if self._stop.wait(RESTART_DELAY):
+                return
+
+    @property
+    def db(self):
+        """Peak in dBFS, faded out if the source has gone quiet.
+
+        A suspended sink simply stops producing chunks, so a stale reading
+        must not be reported as live signal.
+        """
+        if self._updated == 0.0:
+            return SILENCE_DB
+        age = time.monotonic() - self._updated
+        if age <= STALE_AFTER:
+            return amplitude_to_db(self.peak)
+        if age >= STALE_AFTER + STALE_FADE:
+            return SILENCE_DB
+        fade = (age - STALE_AFTER) / STALE_FADE
+        return amplitude_to_db(self.peak) * (1.0 - fade) + SILENCE_DB * fade
+
+
+class MeterBank:
+    """Owns every reader so the UI starts and stops them as one."""
+
+    def __init__(self):
+        self.readers = {}
+
+    def add(self, key, device):
+        if key in self.readers:
+            return self.readers[key]
+        reader = PeakReader(device)
+        self.readers[key] = reader
+        return reader
+
+    def start(self):
+        for reader in self.readers.values():
+            reader.start()
+
+    def stop(self):
+        for reader in self.readers.values():
+            reader.stop()
+
+    def db(self, key):
+        reader = self.readers.get(key)
+        return reader.db if reader else SILENCE_DB
