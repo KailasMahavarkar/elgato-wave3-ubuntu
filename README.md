@@ -36,7 +36,7 @@ If you stream or record on Linux and you own a Wave:3, this should feel like the
 | 🎛️ **Real hardware control** | Gain, mute, Clipguard, low cut, headphone volume, mic/PC balance, dial mode and the LED ring - the actual device settings, not software emulations |
 | 🎚️ **Stream and Monitor mixes** | Nine channels, and every one has a separate fader for what your audience hears and what you hear. This is the whole point of Wave Link, and it works here |
 | 📊 **Meters that mean something** | Per-channel and per-bus peak meters with proper decay and peak hold |
-| 🎨 **An EQ you can actually use** | Six bands named for how voices really go wrong - Rumble, Boom, Boxy, Nasal, Presence, Air. Drag the dots |
+| 🎨 **An EQ you can actually use** | Six bands on Elgato's own frequency zones - Rumble, Boom, Boxy, Nasal, Presence, Air - recovered from Wave Link itself. Drag the dots |
 | 🔊 **Gate, compressor, limiter** | Running as LADSPA plugins inside PipeWire itself, so there is no extra process and no added latency |
 | 🎯 **Presets that follow the guidance** | Broadcast, Warm, Bright, Gentle, Heavy and friends, with values taken from published spoken-word practice rather than invented. One click to Reset any effect, or everything at once |
 | ⚡ **A deck for live use** | Big tiles with number-key shortcuts for the things you need mid-stream, including a one-press panic mute |
@@ -47,7 +47,7 @@ If you stream or record on Linux and you own a Wave:3, this should feel like the
 **The easy way** - grab the `.deb` from [Releases](https://github.com/KailasMahavarkar/elgato-wave3-ubuntu/releases):
 
 ```bash
-sudo apt install ./wave3_1.1.1_all.deb
+sudo apt install ./wave3_1.2.0_all.deb
 ```
 
 **From source:**

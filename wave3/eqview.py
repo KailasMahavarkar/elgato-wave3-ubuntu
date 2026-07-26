@@ -203,11 +203,24 @@ class EqCurve(Gtk.DrawingArea):
         cr.rectangle(x0, y0, w, h)
         cr.fill()
 
+        self._draw_zones(cr, x0, y0, w, h)
+
         self._draw_grid(cr, x0, y0, w, h)
         self._draw_band_fills(cr, x0, y0, w, h)
         self._draw_curve(cr, x0, y0, w, h)
         self._draw_nodes(cr, width, height)
         self._draw_labels(cr, x0, y0, w, h)
+
+    def _draw_zones(self, cr, x0, y0, w, h):
+        """Alternating bands for Elgato's named frequency zones."""
+        for index, (low, high, _name, _desc) in enumerate(eq.ZONES):
+            if index % 2:
+                continue
+            left = x0 + eq.freq_to_fraction(low) * w
+            right = x0 + eq.freq_to_fraction(high) * w
+            cr.set_source_rgba(*GRID_RGB, 0.025)
+            cr.rectangle(left, y0, right - left, h)
+            cr.fill()
 
     def _draw_grid(self, cr, x0, y0, w, h):
         cr.set_line_width(1.0)
@@ -306,11 +319,11 @@ class EqCurve(Gtk.DrawingArea):
             self._text(cr, eq.format_frequency(frequency), x, y0 + h + 12,
                        centre=True, alpha=0.45)
 
-        for band in self.bands:
-            if not band.active:
-                continue
-            x = x0 + eq.freq_to_fraction(band.frequency) * w
-            self._text(cr, band.name.upper(), x, y0 + h + 28,
+        # Zone captions are fixed to the frequency ranges, not to the nodes,
+        # so dragging a band does not drag its label around with it.
+        for low, high, name, _desc in eq.ZONES:
+            centre = x0 + (eq.freq_to_fraction(low) + eq.freq_to_fraction(high)) / 2 * w
+            self._text(cr, name.upper(), centre, y0 + h + 28,
                        size=8, centre=True, alpha=0.38)
 
 

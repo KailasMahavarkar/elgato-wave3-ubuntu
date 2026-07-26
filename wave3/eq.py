@@ -64,14 +64,16 @@ class Band:
         return self.kind in (BELL, HISHELF, LOSHELF)
 
 
-# Zone names follow how people describe voice problems rather than frequency.
+# Each band sits inside the Elgato zone it is named after. The high-pass sits
+# at the top of the rumble zone so it removes that zone rather than half of it;
+# the air shelf sits at the bottom of its zone so it lifts the whole thing.
 DEFAULT_BANDS = (
     (0, "Rumble / Sub-bass", HIPASS, 80.0, 0.0, 0.7, (0.97, 0.45, 0.75)),
-    (1, "Boom / Warmth", BELL, 160.0, 0.0, 1.0, (0.98, 0.82, 0.35)),
-    (2, "Boxy", BELL, 400.0, 0.0, 1.2, (0.98, 0.60, 0.30)),
-    (3, "Nasal", BELL, 1200.0, 0.0, 1.4, (0.55, 0.85, 0.55)),
-    (4, "Presence", BELL, 4000.0, 0.0, 1.0, (0.93, 0.35, 0.55)),
-    (5, "Air", HISHELF, 11000.0, 0.0, 0.7, (0.42, 0.83, 0.90)),
+    (1, "Boom / Warmth", BELL, 155.0, 0.0, 1.0, (0.98, 0.82, 0.35)),
+    (2, "Boxy", BELL, 650.0, 0.0, 1.2, (0.98, 0.60, 0.30)),
+    (3, "Nasal", BELL, 2650.0, 0.0, 1.4, (0.55, 0.85, 0.55)),
+    (4, "Presence", BELL, 7700.0, 0.0, 1.0, (0.93, 0.35, 0.55)),
+    (5, "Air", HISHELF, 12000.0, 0.0, 0.7, (0.42, 0.83, 0.90)),
 )
 
 
@@ -179,6 +181,33 @@ def fraction_to_gain(fraction, low=GAIN_MIN, high=GAIN_MAX):
     fraction = max(0.0, min(1.0, fraction))
     return high - fraction * (high - low)
 
+
+
+# Frequency zones recovered from Wave Link 3.2.2 (float64 table at
+# __DATA_CONST.__const 0x100dfb4a0 of the x86_64 slice; see
+# research/dump/DSP_DEFAULTS.md). Names and descriptions are Elgato's own,
+# from Resources/en.lproj/Localizable.strings.
+#
+# The naming is shifted from common studio usage: Elgato's "Presence" is
+# 5-12 kHz, which most engineers call sibilance, and their "Nasal" is what is
+# usually called presence. Their descriptions are self-consistent with it, so
+# the whole scheme is adopted rather than half of it.
+ZONES = (
+    (20.0, 80.0, "Rumble / Sub-bass",
+     "Deep sounding noises often caused by mechanical influences"),
+    (80.0, 300.0, "Boom / Warmth",
+     "Too much leads to boominess; too little makes the voice sound thin"),
+    (300.0, 1400.0, "Boxy",
+     "Balance carefully to avoid a boxy or hollow sound"),
+    (1400.0, 5000.0, "Nasal",
+     "Vocals compete with other audio sources such as game sound here"),
+    (5000.0, 12000.0, "Presence",
+     "Voices can sound harsh here; can also be tamed with a de-esser"),
+    (12000.0, 20000.0, "Air",
+     "This range can help brighten the overall sound impression"),
+)
+
+ZONE_BOUNDARIES = (20.0, 80.0, 300.0, 1400.0, 5000.0, 12000.0, 20000.0)
 
 GRID_FREQUENCIES = (20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000)
 GRID_GAINS = (12, 9, 6, 3, 0, -3, -6, -9, -12)
