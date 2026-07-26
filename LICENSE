@@ -19,3 +19,37 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+ADDITIONAL NOTICES
+
+Trademarks
+    "Elgato", "Wave", "Wave:3" and "Wave Link" are trademarks of Corsair
+    Gaming, Inc. and its affiliates. This project is not affiliated with,
+    authorised by, endorsed by, or sponsored by Corsair or Elgato. Those names
+    appear here only to identify the hardware this software works with.
+
+No third-party code or assets
+    This repository contains no Elgato or Corsair source code, binaries,
+    firmware, artwork, or other assets. Everything here was written from
+    scratch.
+
+Interoperability
+    The USB control protocol implemented here was determined by observing a
+    device the author owns and by analysing a freely downloadable application,
+    for the sole purpose of making that hardware work on Linux - a platform the
+    vendor does not support. No copy protection was circumvented. In the EU
+    this is expressly permitted by Article 6 of Directive 2009/24/EC; in the US
+    it is consistent with 17 U.S.C. Sec. 1201(f).
+
+Hardware risk
+    Writing to a USB device carries inherent risk. Configuration writes here
+    are transactional and verified, and the firmware-update (DFU) interface is
+    never accessed, but the Software is provided without warranty as stated
+    above. Use of it may affect your hardware warranty.
+
+Dependencies
+    The Software depends on, but does not redistribute, PipeWire, WirePlumber,
+    GTK4, libadwaita and the LSP Plugins (LGPL-3.0). Install those through your
+    distribution.

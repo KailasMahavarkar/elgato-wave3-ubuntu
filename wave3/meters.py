@@ -1,12 +1,9 @@
 """Peak level readers.
 
-One lightweight capture per metered node. PipeWire's own pw-cat/pw-record in
-1.0.5 have no raw-stream mode (only file output), so this uses the PulseAudio
-compatibility recorder, which does: `parecord --raw`.
-
-Each reader is 8 kHz mono s16 - about 16 KB/s - and lives on its own thread
-doing a blocking read. Threads only ever publish a float, so the GTK side can
-poll them without locking anything.
+One capture per metered node. pw-cat/pw-record in 1.0.5 have no raw-stream
+mode (file output only), so this uses `parecord --raw`. Each reader is 8 kHz
+mono s16 on its own thread and publishes only a float, so the GTK side polls
+without locking.
 """
 
 import math
@@ -18,16 +15,14 @@ import time
 RATE = 8000
 CHUNK_BYTES = 512
 
-# parecord defaults to roughly a two second buffer and delivers audio in one
-# burst per buffer, which is useless for a 30 fps meter. Requesting a short
-# latency is what makes the stream continuous.
+# parecord defaults to roughly a two second buffer and delivers one burst per
+# buffer; requesting a short latency is what makes the stream continuous.
 LATENCY_MS = 30
 RESTART_DELAY = 1.0
 SILENCE_DB = -90.0
 
-# An idle PipeWire sink stops handing chunks to the recorder, which would
-# otherwise freeze the meter at whatever it last saw. Anything older than
-# STALE_AFTER is faded out rather than trusted.
+# An idle PipeWire sink stops handing chunks to the recorder, which freezes
+# the meter at its last reading. Anything older than STALE_AFTER is faded out.
 STALE_AFTER = 0.15
 STALE_FADE = 0.4
 
@@ -76,11 +71,10 @@ class PeakReader:
         )
 
     def _run(self):
-        """Read peaks, restarting the recorder if it ever exits.
+        """Read peaks, restarting the recorder if it exits.
 
-        A recorder can exit when its source disappears or suspends. Without a
-        restart the meter would be dead for the rest of the session, showing a
-        confident -90 that means "not measuring" rather than "silent".
+        A recorder exits when its source disappears or suspends; without a
+        restart the meter would read -90 for the rest of the session.
         """
         while not self._stop.is_set():
             try:
@@ -105,11 +99,7 @@ class PeakReader:
 
     @property
     def db(self):
-        """Peak in dBFS, faded out if the source has gone quiet.
-
-        A suspended sink simply stops producing chunks, so a stale reading
-        must not be reported as live signal.
-        """
+        """Peak in dBFS, faded out once readings go stale."""
         if self._updated == 0.0:
             return SILENCE_DB
         age = time.monotonic() - self._updated

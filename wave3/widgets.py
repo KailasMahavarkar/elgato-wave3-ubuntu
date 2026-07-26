@@ -1,7 +1,6 @@
 """Custom mixer widgets: level meter, fader, channel strip.
 
-Per DESIGN.md: one pre-fader meter per channel, two faders (Stream and
-Monitor) because there is one signal and two independent destinations.
+One pre-fader meter per channel and one fader per mix, Stream and Monitor.
 """
 
 import math
@@ -51,8 +50,8 @@ def zone_rgb(db):
 class LevelMeter(Gtk.DrawingArea):
     """Segmented vertical peak meter with decay and peak-hold.
 
-    Rise is instantaneous; only the fall is smoothed. A meter that lags on
-    attack lies about transients, which is the one thing a meter must not do.
+    Rise is instantaneous; only the fall is smoothed, so transients are not
+    under-reported.
     """
 
     def __init__(self, width=10):
@@ -133,8 +132,7 @@ class Fader(Gtk.Box):
         self.scale.connect("value-changed", self._emit)
         self.scale.update_property([Gtk.AccessibleProperty.LABEL], [tooltip])
 
-        # Caption above the readout. Below the readout it collided visually
-        # with the mute button and read as another control.
+        # Caption sits above the readout to keep it clear of the mute button.
         self.caption = Gtk.Label(label=label)
         self.caption.add_css_class("fader-caption")
 
@@ -217,9 +215,8 @@ class ChannelStrip(Gtk.Box):
         title.set_max_width_chars(10)
         self.append(title)
 
-        # The badge slot always exists, empty or not. Without it the one strip
-        # that has a badge pushes its faders down and every baseline in the row
-        # stops lining up.
+        # The badge slot always exists, empty or not, so that a badged strip
+        # does not push its faders down out of line with the rest of the row.
         chip = Gtk.Label(label=badge or "")
         chip.add_css_class("strip-badge")
         if not badge:

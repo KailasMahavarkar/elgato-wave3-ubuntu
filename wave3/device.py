@@ -51,8 +51,8 @@ class PermissionError_(DeviceError):
 class GuardViolation(DeviceError):
     """A write disturbed bytes outside the field it targeted.
 
-    Raised only after the original block has been written back. Carries
-    the evidence so the caller can report exactly which offsets moved.
+    Raised only after the original block has been written back, and carries
+    the offending offsets so the caller can report them.
     """
 
     def __init__(self, field, offenders, before, expected, actual, rolled_back):
@@ -86,6 +86,12 @@ class Wave3:
         self._handle = None
         self._lock = threading.Lock()
         self._txn = threading.RLock()
+
+        # Last config block this process caused, so a poller can tell these
+        # writes apart from the user turning a knob on the device. Tracked here
+        # rather than in the UI because several call sites write: the hardware
+        # page, the deck and the CLI.
+        self.last_written = None
 
     @property
     def connected(self):
@@ -145,21 +151,22 @@ class Wave3:
         return p.decode_version(self._read(p.SEL_VERSION, 64))
 
     def set_field(self, field, value):
-        """Read-modify-write one field, then prove nothing else moved.
+        """Read-modify-write one field, then verify nothing else moved.
 
-        The field map for offsets 5, 6, 9, 10, 12, 13, 14 and 15 comes from
-        static analysis rather than observation, so every write is treated
-        as a transaction: read back, compare against the intended block, and
-        restore the original if any byte outside the target field changed.
+        Offsets 5, 6, 9, 10, 12, 13, 14 and 15 come from static analysis rather
+        than observation, so every write is a transaction: read back, compare
+        against the intended block, and restore the original if any byte
+        outside the target field changed.
 
-        Bytes inside the target field are allowed to differ from what was
-        requested; firmware clamps and quantises (direct_monitor steps by 5,
-        gain by its detent size). Those are reported as normalisation.
+        Bytes inside the target field may differ from what was requested;
+        firmware clamps and quantises (direct_monitor steps by 5, gain by its
+        detent size). Those are reported as normalisation.
         """
         with self._txn:
             before = self.read_config()
             expected = p.encode_field(field, before, value)
             if expected == before:
+                self.last_written = bytes(before)
                 return WriteResult(field, bytes(before), bytes(before))
 
             self.write_config(expected)
@@ -176,9 +183,12 @@ class Wave3:
                 try:
                     self.write_config(before)
                     rolled_back = self.read_config() == before
+                    if rolled_back:
+                        self.last_written = bytes(before)
                 except DeviceError:
                     rolled_back = False
                 raise GuardViolation(field, offenders, before, expected, actual, rolled_back)
 
             normalized = [i for i in sorted(own) if actual[i] != expected[i]]
+            self.last_written = bytes(actual)
             return WriteResult(field, bytes(before), bytes(actual), normalized)

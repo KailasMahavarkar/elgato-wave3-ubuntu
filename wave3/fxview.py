@@ -1,8 +1,7 @@
 """Effects view: the rack drawn as a signal chain, in signal order.
 
-Reads left to right the way the audio actually flows. Selecting a stage
-reveals its controls; a bypassed stage dims and its arrow greys, so bypass is
-visible in the diagram rather than hidden inside a switch.
+Selecting a stage reveals its controls; a bypassed stage dims along with its
+arrow, so bypass is visible in the diagram.
 """
 
 import gi
@@ -163,8 +162,7 @@ class FxPage(Gtk.Box):
         self.append(Gtk.Separator(margin_top=16))
 
         # Adw.PreferencesPage clamps its own content to ~600px internally, so
-        # wrapping one in a wider clamp achieves nothing. Same groups, plain
-        # box, our clamp - which is what actually gives the EQ graph its width.
+        # wrapping one in a wider clamp achieves nothing. Plain box, own clamp.
         self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         self.detail.set_margin_top(18)
         self.detail.set_margin_bottom(24)
@@ -233,8 +231,7 @@ class FxPage(Gtk.Box):
             title=effect.label, description=effect.description
         )
 
-        # EQ gets a curve editor and the compressor a waveform, because a
-        # parametric EQ and a threshold are both spatial, not numeric.
+        # EQ gets a curve editor, the compressor a waveform.
         if effect.ident == "eq":
             group.add(self._wrap(eqview.EqPanel(self._eq_bands, self._eq_band_changed)))
         elif effect.ident == "comp" and self._comp_devices:

@@ -2,7 +2,7 @@
 
 Drag a node to move its frequency and gain, scroll on it to change Q, right
 click it to change filter type. The curve is drawn from the same maths the
-filter runs, so what you see is what the audio does.
+filter runs.
 """
 
 import math

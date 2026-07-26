@@ -1,8 +1,7 @@
 """Entry point and command-line setup.
 
-Running with no arguments launches the GUI. The setup subcommands install or
-remove the per-user PipeWire topology and effects rack, so the packaged app is
-self-sufficient without the source-tree Makefile.
+No arguments launches the GUI. The subcommands install or remove the per-user
+PipeWire topology and effects rack without needing the source-tree Makefile.
 """
 
 import argparse

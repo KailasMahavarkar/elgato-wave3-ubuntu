@@ -9,9 +9,8 @@ from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
 
 from . import deck  # noqa: E402
 
-# Every group wraps at the same column count, otherwise a group with a
-# different item count flows to a different width and the right edge of the
-# deck goes ragged. Matches the 880px content width used by the other pages.
+# Every group wraps at the same column count, otherwise groups with different
+# item counts flow to different widths and the deck's right edge goes ragged.
 MAX_COLUMNS = 4
 CONTENT_WIDTH = 1040
 REFRESH_MS = 250
@@ -19,7 +18,7 @@ SHORTCUT_KEYS = "1234567890"
 
 
 class Tile(Gtk.Button):
-    """One action. Big enough to hit without aiming."""
+    """One quick action, rendered as a large tile."""
 
     def __init__(self, action, index):
         super().__init__()
@@ -110,8 +109,7 @@ class DeckPage(Gtk.Box):
             heading.set_xalign(0)
             column.append(heading)
 
-            # FlowBox rather than a fixed grid so the deck reflows into
-            # however much width the window actually has.
+            # FlowBox rather than a fixed grid so the deck reflows to width.
             grid = Gtk.FlowBox()
             grid.set_selection_mode(Gtk.SelectionMode.NONE)
             grid.set_homogeneous(True)
@@ -133,34 +131,52 @@ class DeckPage(Gtk.Box):
         scroller.set_child(clamp)
         self.append(scroller)
 
-        keys = Gtk.EventControllerKey()
-        keys.connect("key-pressed", self._key_pressed)
-        self.add_controller(keys)
-
+        self._keys = None
         self.connect("map", self._on_map)
         self.connect("unmap", self._on_unmap)
 
-    def _key_pressed(self, _c, keyval, _code, _state):
+    def _key_pressed(self, _c, keyval, _code, state):
+        # Ignore modified presses so Alt+1 style window shortcuts still work.
+        if state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK):
+            return False
         name = Gdk.keyval_name(keyval) or ""
-        if len(name) == 1 and name in SHORTCUT_KEYS:
-            position = SHORTCUT_KEYS.index(name)
-            if position < len(self.tiles):
-                tile = self.tiles[position]
-                if tile.get_sensitive():
-                    tile.action.toggle()
-                    self.refresh()
-                return True
-        return False
+        if len(name) != 1 or name not in SHORTCUT_KEYS:
+            return False
+        position = SHORTCUT_KEYS.index(name)
+        if position >= len(self.tiles):
+            return False
+        tile = self.tiles[position]
+        if not tile.get_sensitive():
+            # Let the key fall through rather than swallowing it.
+            return False
+        tile.action.toggle()
+        self.refresh()
+        return True
 
     def _on_map(self, *_a):
         self.refresh()
         if self._refresh_source is None:
             self._refresh_source = GLib.timeout_add(REFRESH_MS, self._tick)
 
+        # The controller lives on the window, not on this box: after a view
+        # switch focus is still on the switcher button, so a controller
+        # attached here would not see the press until a tile was clicked.
+        root = self.get_root()
+        if root is not None and self._keys is None:
+            self._keys = Gtk.EventControllerKey()
+            self._keys.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+            self._keys.connect("key-pressed", self._key_pressed)
+            root.add_controller(self._keys)
+
     def _on_unmap(self, *_a):
         if self._refresh_source is not None:
             GLib.source_remove(self._refresh_source)
             self._refresh_source = None
+        # Shortcuts must not stay live while another view is showing.
+        root = self.get_root()
+        if root is not None and self._keys is not None:
+            root.remove_controller(self._keys)
+        self._keys = None
 
     def _tick(self):
         self.refresh()

@@ -1,13 +1,11 @@
 """Compressor view: scrolling waveform with a draggable threshold.
 
-Layout follows Elgato's: input meter on the left, waveform in the middle with
-a threshold line you drag, gain and output on the right.
+Input meter left, waveform centre, gain and output right.
 
-One honest limitation. PipeWire's filter-chain publishes only the plugins'
-*input* control ports, so the compressor's own gain-reduction meter is not
-readable. Rather than draw a needle that pretends otherwise, the right-hand
-meter shows the measured difference between what enters the chain and what
-leaves it, and is labelled as chain gain rather than compressor reduction.
+PipeWire's filter-chain publishes only the plugins' input control ports, so
+the compressor's own gain-reduction meter is unreadable. The right-hand meter
+instead shows the measured difference between chain input and chain output,
+and is labelled chain gain rather than compressor reduction.
 """
 
 import collections
@@ -287,7 +285,7 @@ class CompressorPanel(Gtk.Box):
         self.input_meter.tick(in_db)
         self.output_meter.tick(out_db)
 
-        # Only meaningful while signal is actually present.
+        # Only meaningful while signal is present.
         if in_db > FLOOR_DB and out_db > FLOOR_DB:
             makeup = self.controls.get(MAKEUP_PORT)
             makeup_db = float(makeup.default) if makeup else 0.0

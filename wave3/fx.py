@@ -1,33 +1,19 @@
 """Mic effects rack, hosted by PipeWire's filter-chain module.
 
-Wave Link runs a VST rack on Windows and macOS. The equivalent here is a
-plugin graph living inside the PipeWire graph itself, so there is no extra
-process and no Wine bridge.
+    capsule -> gate -> EQ -> compressor -> limiter -> wave3.fx.mic
 
-    Wave:3 capsule -> gate -> EQ -> compressor -> limiter -> wave3.fx.mic
-                                                                  |
-                                              mic channel loopbacks pick
-                                              this up instead of the raw
-                                              ALSA source
+Constraints of the Ubuntu build:
 
-Three things here are load-bearing and were established by inspection
-rather than assumption:
+1. filter-chain is built without LV2 support (builtin and ladspa only).
+   `type = lv2` fails to load the module, and a failed mandatory module in a
+   conf.d drop-in takes the whole PipeWire daemon down with it.
+2. LADSPA controls are keyed by port NAME including units, e.g.
+   "Curve threshold (G)", not by symbol.
+3. LADSPA has no `enabled` port, only `Bypass`, which is inverted: 0 runs the
+   effect, 1 skips it.
 
-1. Ubuntu builds libpipewire-module-filter-chain WITHOUT LV2 support.
-   `strings` on the module lists exactly two plugin types, builtin and
-   ladspa. Using `type = lv2` makes the module fail to load, and because
-   a module in a conf.d drop-in is mandatory, that takes the whole
-   PipeWire daemon down with it. LADSPA is the only real option.
-
-2. LADSPA controls are keyed by port NAME, not symbol, and the names
-   carry their units - "Curve threshold (G)", not "gt". They come from
-   analyseplugin.
-
-3. LADSPA has no `enabled` port. It has `Bypass`, with inverted meaning:
-   0 runs the effect, 1 skips it.
-
-LSP expresses thresholds and gains as linear amplitude (the "(G)" suffix),
-so every dB control here is converted on the way out.
+LSP expresses thresholds and gains as linear amplitude (the "(G)" suffix), so
+every dB control here is converted on the way out.
 """
 
 import json
@@ -109,8 +95,7 @@ def _eq_controls():
     """One control set per EQ band, matching wave3.eq's band model.
 
     Filter mode is pinned to APO (DR), the plain digital biquad, so the curve
-    drawn in the editor is the curve the plugin actually runs rather than an
-    approximation of a different filter topology.
+    drawn in the editor is the curve the plugin runs.
     """
     from . import eq
 
@@ -131,8 +116,8 @@ def _eq_controls():
 
 
 def build_rack():
-    """Curated chain. Gate precedes the compressor so the compressor never
-    pulls up room noise the gate exists to remove."""
+    """Curated chain. The gate precedes the compressor so the compressor
+    never pulls up room noise the gate exists to remove."""
     return [
         Effect(
             "gate", "Noise Gate", "gate_mono",
@@ -140,8 +125,7 @@ def build_rack():
             [
                 Control("Curve threshold (G)", "Threshold", DB, -60.0, 0.0, -24.0, "dB", 0.5),
                 # Reduction is how far a closed gate attenuates. LSP defaults
-                # it to 1.0, which is 0 dB - the gate opens and closes but
-                # changes nothing. It must be set or the effect is inert.
+                # it to 1.0 (0 dB), leaving the gate inert unless set.
                 Control("Reduction (G)", "Reduction", DB, -72.0, 0.0, -48.0, "dB", 1.0),
                 Control("Attack (ms)", "Attack", MS, 0.0, 2000.0, 5.0, "ms", 1.0),
                 Control("Release (ms)", "Release", MS, 0.0, 5000.0, 150.0, "ms", 5.0),
@@ -212,7 +196,6 @@ def rack_to_state(rack):
 
 def _node(effect):
     controls = {c.port: c.to_plugin(c.default) for c in effect.controls}
-    # LADSPA Bypass is inverted: 0 runs the effect, 1 skips it.
     controls["Bypass"] = 0.0 if effect.enabled else 1.0
     body = "\n".join(
         f'                          "{k}" = {v:.6f}' for k, v in controls.items()
@@ -229,14 +212,11 @@ def _node(effect):
 def generate_config(rack, source):
     """Render the filter-chain drop-in.
 
-    Effects stay in the graph when disabled and are switched via their own
-    Bypass port, so toggling one is a control change rather than a
-    topology rebuild that would glitch the audio.
+    Disabled effects stay in the graph and are switched via their Bypass
+    port, so toggling one is a control change rather than a topology rebuild.
 
-    The module carries flags = [ nofail ] deliberately. Without it a
-    single bad control name or a missing plugin library stops PipeWire
-    from starting at all, taking every audio device on the machine with
-    it. With it, a broken rack costs you the effects and nothing else.
+    flags = [ nofail ] is required: a bad control name or a missing plugin
+    library would otherwise stop PipeWire from starting at all.
     """
     nodes = "\n".join(_node(e) for e in rack)
     links = "\n".join(
@@ -311,9 +291,9 @@ def available():
 class Runtime:
     """Live control of the loaded rack.
 
-    filter-chain publishes every plugin control on the capture node as a
-    Props param keyed "<effect>:<Port Name>", so a knob turn is a param
-    set rather than a config rewrite and PipeWire restart.
+    filter-chain publishes every plugin control on the capture node as a Props
+    param keyed "<effect>:<Port Name>", so a knob turn is a param set rather
+    than a config rewrite and PipeWire restart.
     """
 
     def __init__(self):
@@ -350,5 +330,4 @@ class Runtime:
                          f"{control.to_plugin(value):.6f}")
 
     def set_enabled(self, effect, enabled):
-        # Bypass is inverted relative to "enabled".
         return self._set(f"{effect.ident}:Bypass", "false" if enabled else "true")

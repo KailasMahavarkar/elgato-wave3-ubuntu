@@ -1,12 +1,8 @@
 """Quick-action registry for the Deck view.
 
-Deliberately free of any GTK import. The UI renders these; a future OpenDeck
-plugin, hotkey daemon, or MQTT bridge can drive the identical set without the
-UI existing at all.
-
-Reversible actions (Dim, Panic) capture the exact prior state in memory and
-restore it. They never write a guessed default back, because "restore" that
-guesses is just a second mutation wearing a friendly name.
+Free of any GTK import, so the same action set can be driven by another front
+end. Reversible actions (Dim, Panic) capture the exact prior state in memory
+and restore it rather than writing a guessed default.
 """
 
 from dataclasses import dataclass, field
@@ -52,8 +48,8 @@ class Action:
 class DeckState:
     """Owns the reversible bulk actions.
 
-    Dim and Panic both need to put things back exactly as they were, so the
-    prior values live here rather than being recomputed.
+    Dim and Panic both restore prior values, so those values are held here
+    rather than recomputed.
     """
 
     DIM_DB = 20.0
@@ -69,36 +65,50 @@ class DeckState:
 
     @property
     def dimmed(self):
-        return self._dim_levels is not None
+        return bool(self._dim_levels)
+
+    # A restore is only correct if the channel still sits where dim put it.
+    # Compared with a tolerance because wpctl reports two decimal places.
+    RESTORE_TOLERANCE = 0.02
 
     def set_dimmed(self, dim):
-        if dim == self.dimmed:
+        if dim == self.dimmed and not (dim and self._dim_levels is None):
             return
         if dim:
             captured = {}
             factor = 10.0 ** (-self.DIM_DB / 20.0)
             for ch in self.channels:
                 reading = self.runtime.get_level(ch, self.mixer.MONITOR)
-                linear = reading[0] if reading else 0.0
-                captured[ch.ident] = linear
-                self.runtime.set_level(ch, self.mixer.MONITOR, linear * factor)
+                if reading is None:
+                    # No prior level to record; a guessed fallback would be
+                    # written back as the restore value on release.
+                    continue
+                linear = reading[0]
+                dimmed = linear * factor
+                if self.runtime.set_level(ch, self.mixer.MONITOR, dimmed):
+                    captured[ch.ident] = (linear, dimmed)
             self._dim_levels = captured
         else:
             for ch in self.channels:
-                if ch.ident in self._dim_levels:
-                    self.runtime.set_level(
-                        ch, self.mixer.MONITOR, self._dim_levels[ch.ident]
-                    )
+                entry = self._dim_levels.get(ch.ident)
+                if entry is None:
+                    continue
+                original, applied = entry
+                reading = self.runtime.get_level(ch, self.mixer.MONITOR)
+                if reading is not None and abs(reading[0] - applied) > self.RESTORE_TOLERANCE:
+                    # Moved while dimmed, so the user's newer value wins.
+                    continue
+                self.runtime.set_level(ch, self.mixer.MONITOR, original)
             self._dim_levels = None
 
     # -- panic ------------------------------------------------------------
 
     @property
     def panicked(self):
-        return self._panic_mutes is not None
+        return bool(self._panic_mutes)
 
     def set_panicked(self, panic):
-        if panic == self.panicked:
+        if panic == self.panicked and not (panic and self._panic_mutes is None):
             return
         if panic:
             captured = {}
@@ -106,16 +116,36 @@ class DeckState:
                 if ch.is_mic:
                     continue
                 reading = self.runtime.get_level(ch, self.mixer.STREAM)
-                captured[ch.ident] = reading[1] if reading else False
+                if reading is None:
+                    # No prior mute state to record; guessing "was unmuted"
+                    # would un-mute a deliberately muted channel on release.
+                    continue
+                captured[ch.ident] = reading[1]
                 self.runtime.set_mute(ch, self.mixer.STREAM, True)
             self._panic_mutes = captured
         else:
             for ch in self.channels:
-                if ch.ident in self._panic_mutes:
-                    self.runtime.set_mute(
-                        ch, self.mixer.STREAM, self._panic_mutes[ch.ident]
-                    )
+                if ch.ident not in self._panic_mutes:
+                    continue
+                reading = self.runtime.get_level(ch, self.mixer.STREAM)
+                if reading is not None and not reading[1]:
+                    # Un-muted while panicked, so the user already overrode it.
+                    continue
+                self.runtime.set_mute(
+                    ch, self.mixer.STREAM, self._panic_mutes[ch.ident]
+                )
             self._panic_mutes = None
+
+
+def _set_effect(fx_runtime, rack, effect, enabled):
+    """Toggle an effect and persist the new rack state."""
+    from . import fx as fx_module
+
+    if not fx_runtime.set_enabled(effect, enabled):
+        return False
+    effect.enabled = enabled
+    fx_module.save_state(fx_module.rack_to_state(rack))
+    return True
 
 
 def _channel_mute_action(mixer_module, runtime, channel, icon):
@@ -155,8 +185,8 @@ def build_actions(device_api, mixer_module, mixer_runtime, channels,
                   fx_runtime=None, rack=None):
     """Assemble every quick action available in the current configuration.
 
-    device_api exposes read()/write(field, value) against the hardware config
-    block; it is passed in rather than imported so the deck stays testable.
+    device_api exposes read()/write(path, value) against the hardware config
+    block and is injected rather than imported so the deck stays testable.
     """
     actions = []
     state = DeckState(mixer_module, mixer_runtime, channels)
@@ -201,9 +231,7 @@ def build_actions(device_api, mixer_module, mixer_runtime, channels,
                 group=EFFECTS,
                 tooltip=f"Bypass or enable {effect.label}",
                 is_active=(lambda e=effect: e.enabled),
-                set_active=(lambda v, e=effect: (
-                    setattr(e, "enabled", v), fx_runtime.set_enabled(e, v)
-                )[0]),
+                set_active=(lambda v, e=effect: _set_effect(fx_runtime, rack, e, v)),
                 available=lambda: fx_runtime.available,
             ))
 

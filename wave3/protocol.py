@@ -74,8 +74,8 @@ BY_OFFSET = {f.offset: f for f in CONFIG_FIELDS}
 # read-modify-write cycle untouched.
 RESERVED = (2, 3)
 
-# Offsets confirmed by observing the hardware change them, not by
-# reading the disassembly. Seeds the persisted verification store.
+# Offsets confirmed by observing the hardware change them. Seeds the
+# persisted verification store.
 #   /input_gain       dial sweep, 40.00 -> 6.15 dB in 6.15 dB detents
 #   /input_mute       ALSA numid=5 toggle, byte 4 followed it
 #   /headphone_volume ALSA numid=4 at 20/73/100, all three matched Q8.8 dB

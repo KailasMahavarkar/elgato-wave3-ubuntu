@@ -13,9 +13,8 @@ from .widgets import ChannelStrip, MasterMeter, prefers_reduced_motion  # noqa: 
 APPLY_DEBOUNCE_MS = 60
 METER_FPS_MS = 33
 
-# Strips fill available height up to this ceiling. Unbounded growth gives
-# absurd fader travel on a tall screen; a fixed height leaves a maximised
-# window mostly empty. Clamp does both.
+# Strips grow into the available height up to this ceiling, which keeps fader
+# travel usable on a tall screen without leaving a maximised window empty.
 MIN_STRIP_HEIGHT = 380
 MAX_STRIP_HEIGHT = 620
 
@@ -43,7 +42,7 @@ class MixerPage(Gtk.Box):
             self.master_meters[mix] = meter
             masters.append(meter)
 
-        # A bus meter spanning a 1900px window is unreadable and looks broken.
+        # A bus meter spanning a full-width window is unreadable.
         master_clamp = Adw.Clamp(maximum_size=MASTER_WIDTH, tightening_threshold=720)
         master_clamp.set_child(masters)
         master_clamp.set_margin_top(14)
@@ -54,9 +53,6 @@ class MixerPage(Gtk.Box):
 
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         row.add_css_class("strip-row")
-        # Centre the strips rather than letting them hug the left edge with
-        # dead space to the right, and cap the height so faders get usable
-        # travel instead of stretching to the full window.
         row.set_halign(Gtk.Align.CENTER)
         row.set_valign(Gtk.Align.FILL)
         row.set_vexpand(True)
@@ -71,9 +67,6 @@ class MixerPage(Gtk.Box):
             self.strips[channel.ident] = strip
             row.append(strip)
 
-        # Strips grow into the available height instead of floating in the
-        # middle of a maximised window, but stop at MAX_STRIP_HEIGHT so a tall
-        # screen does not produce a metre of fader travel.
         height_clamp = Adw.Clamp(
             orientation=Gtk.Orientation.VERTICAL,
             maximum_size=MAX_STRIP_HEIGHT,
@@ -102,9 +95,25 @@ class MixerPage(Gtk.Box):
         self.connect("unmap", self._on_unmap)
 
     def _on_map(self, *_a):
+        # The deck can change levels while this view is hidden (Dim, Panic),
+        # and the next fader touch would otherwise write a stale value back.
+        self.resync_from_runtime()
         self.bank.start()
         if self._meter_source is None:
             self._meter_source = GLib.timeout_add(METER_FPS_MS, self._tick_meters)
+
+    def resync_from_runtime(self):
+        """Pull the live volumes back into the fader positions."""
+        for channel in self.channels:
+            strip = self.strips.get(channel.ident)
+            if strip is None:
+                continue
+            for mix in mixer.MIXES:
+                reading = self.runtime.get_level(channel, mix)
+                if reading is None:
+                    continue
+                linear, muted = reading
+                strip.sync(mix, linear_to_pct(linear), muted)
 
     def _on_unmap(self, *_a):
         if self._meter_source is not None:

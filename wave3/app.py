@@ -1,9 +1,8 @@
 """GTK4 control panel for the Elgato Wave:3.
 
-Every row is writable, but writes are transactional: the block is read
-back and restored if any byte outside the target field moved. Fields whose
-offset has been confirmed by watching the hardware change it are badged
-"verified"; the rest are badged "guarded" and rely on the rollback.
+Writes are transactional: the block is read back and restored if any byte
+outside the target field moved. Offsets confirmed by watching the hardware
+change them are badged "verified", the rest "guarded".
 """
 
 import json
@@ -30,8 +29,7 @@ from .mixerview import MixerPage  # noqa: E402
 POLL_MS = 100
 WRITE_DEBOUNCE_MS = 180
 
-# Wider than Adwaita's 600px default so a maximised window is not
-# mostly empty, narrow enough that rows stay scannable.
+# Wider than Adwaita's 600px default so a maximised window is not mostly empty.
 CONTENT_WIDTH = 1040
 GROUPS = ("Microphone", "Monitoring", "Device")
 
@@ -68,21 +66,24 @@ def save_verified(verified):
 class DeviceApi:
     """Config-block access for the deck.
 
-    Deck writes go through Wave3.set_field, so they get the same read-back and
-    rollback protection as the Microphone page. Reads are cached briefly
-    because the deck polls several actions at 4 Hz and each uncached read is a
-    USB control transfer.
+    Writes go through Wave3.set_field for the same read-back and rollback
+    protection as the Microphone page. Reads are cached briefly because the
+    deck polls several actions at 4 Hz and each read is a USB control transfer.
     """
 
-    CACHE_SECONDS = 0.2
+    CACHE_SECONDS = 0.5
 
     def __init__(self, dev):
         self.dev = dev
         self._config = None
         self._fetched = 0.0
+        self._offline = False
 
     def ready(self):
-        return self.dev.connected
+        return self.dev.connected and not self._offline
+
+    def _mark_offline(self, offline):
+        self._offline = offline
 
     def invalidate(self):
         self._config = None
@@ -90,7 +91,12 @@ class DeviceApi:
     def _block(self):
         now = GLib.get_monotonic_time() / 1_000_000.0
         if self._config is None or now - self._fetched > self.CACHE_SECONDS:
-            self._config = self.dev.read_config()
+            try:
+                self._config = self.dev.read_config()
+            except DeviceError:
+                self._offline = True
+                raise
+            self._offline = False
             self._fetched = now
         return self._config
 
@@ -204,8 +210,7 @@ class Window(Adw.ApplicationWindow):
         self._intent = {}
 
         # Adw.PreferencesPage hard-clamps its content to roughly 600px with no
-        # public way to widen it, which leaves most of a maximised window empty.
-        # Same groups, own clamp, wider ceiling.
+        # public way to widen it. Same groups, own clamp, wider ceiling.
         groups = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
         groups.set_margin_top(20)
         groups.set_margin_bottom(24)
@@ -220,9 +225,6 @@ class Window(Adw.ApplicationWindow):
         page.set_vexpand(True)
         page.set_child(page_clamp)
 
-        # A banner is for things that need attention now. The verified/guarded
-        # explanation is standing context, so it lives with the controls it
-        # describes and the banner stays hidden until something actually fails.
         self.banner = Adw.Banner(title="", revealed=False)
 
         self.legend = Adw.PreferencesGroup(
@@ -296,7 +298,7 @@ class Window(Adw.ApplicationWindow):
         if fx.installed() and self.fx_runtime.refresh() is not None:
             rack = fx.apply_state(fx.build_rack(), fx.load_state())
             # Compressor meters read the raw capsule (chain input) and the
-            # rack output, which is the only honest pair available.
+            # rack output.
             capsule = mixer.resolve_node(mixer.WAVE3_SOURCE_MATCH, "Audio/Source")
             comp_devices = (capsule, fx.FX_SOURCE) if capsule else None
             self.fx_page = FxPage(self.fx_runtime, rack, comp_devices)
@@ -318,20 +320,17 @@ class Window(Adw.ApplicationWindow):
         except Exception as exc:
             self._flash(f"Deck unavailable: {exc}")
 
-        # The Wave:3 capture stream can wedge: USB and ALSA both report it
-        # running while the hardware pointer never advances, so every meter
-        # reads a silent -90 dB with nothing in any log. Suspend-based
-        # recovery is disabled by our own WirePlumber rule, so recover here.
-        self.watchdog = watchdog.CaptureWatchdog(on_recover=self._on_recovered)
+        self.watchdog = watchdog.CaptureWatchdog(
+            on_recover=self._on_recovered, on_give_up=self._on_gave_up
+        )
         self.watchdog.start()
         self.connect("close-request", self._on_close)
 
-        # Mixer is the primary surface; the device page is a settings detour.
+        # Mixer is the primary surface.
         if self.mixer_page is not None:
             self.stack.set_visible_child_name("mixer")
 
-        # Deep-link hooks: open straight to a tab, or an effect stage. Used for
-        # documentation captures and harmless otherwise.
+        # Deep-link hooks: open straight to a tab or an effect stage.
         start_tab = os.environ.get("WAVE3_START_TAB")
         if start_tab:
             self.stack.set_visible_child_name(start_tab)
@@ -372,6 +371,13 @@ class Window(Adw.ApplicationWindow):
             f"Microphone capture had stalled and was restarted "
             f"({count} time{'s' if count > 1 else ''} this session)",
             6,
+        )
+
+    def _on_gave_up(self):
+        GLib.idle_add(
+            self._alert_banner,
+            "Microphone capture is stalled and could not be restarted. "
+            "Replug the Wave:3.",
         )
 
     def _on_close(self, *_args):
@@ -426,11 +432,9 @@ class Window(Adw.ApplicationWindow):
         """Record the user's intent, then schedule the write.
 
         The intent entry makes _poll leave this row alone until the
-        transaction resolves; without it the poll would flip the widget
-        back to the stale device value while the write is still pending.
-
-        Discrete controls commit on the next main-loop iteration. Only
-        continuous ones debounce, to coalesce a drag into one write.
+        transaction resolves, so a pending write is not overwritten by the
+        stale device value. Discrete controls commit on the next main-loop
+        iteration; only continuous ones debounce, to coalesce a drag.
         """
         self._intent[field.path] = value
 
@@ -498,7 +502,15 @@ class Window(Adw.ApplicationWindow):
         return True
 
     def _verify_changes(self, config):
-        """Promote any field the hardware changed on its own to verified."""
+        """Promote a field to verified only when the hardware moved it itself.
+
+        Several paths write (this page, the deck, the CLI) and the device
+        records the last block it was given, so a config matching that block
+        is a local write rather than a user turning a knob.
+        """
+        if self.dev.last_written is not None and bytes(config) == self.dev.last_written:
+            return
+
         changed = {
             p.owning_offset(i)
             for i in range(p.CONFIG_LEN)
@@ -536,7 +548,7 @@ class Application(Adw.Application):
         self.dev = Wave3()
 
     def do_activate(self):
-        # Dark only: a mixer sits next to a bright preview in a dim room.
+        # Dark only.
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
         load_css()
         try:

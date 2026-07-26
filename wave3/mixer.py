@@ -1,21 +1,8 @@
 """PipeWire mixer topology for the Wave:3.
 
-Reproduces Wave Link's model: every channel carries an independent fader
-for each mix, so what the stream hears and what you hear are separate.
-
-    apps ---> [wave3.ch.<id>]  null sink, one per channel
-                    |
-              two loopbacks, independent volume and mute
-                    |
-        +-----------+-----------+
-        v                       v
-  [wave3.stream]          [wave3.monitor]
-        |                       |
-   .monitor --> OBS       --> Wave:3 headphones
-
-The static topology lives in a pipewire.conf.d drop-in. Per-channel
-levels are applied at runtime to the loopback playback nodes, which is
-what makes a fader move audible without rewriting config.
+Each channel gets a null sink and two loopbacks, one per mix, so Stream and
+Monitor carry independent levels. The topology lives in a pipewire.conf.d
+drop-in; levels are applied at runtime to the loopback playback nodes.
 """
 
 import json
@@ -43,11 +30,9 @@ MIXES = (STREAM, MONITOR)
 
 MIX_LABEL = {STREAM: "Stream", MONITOR: "Monitor"}
 
-# Neither sink name may end in "monitor". PulseAudio derives a monitor
-# source as "<sink>.monitor", so a sink called wave3.monitor produces
-# wave3.monitor.monitor, which pactl and parecord then fail to resolve -
-# capture by that name silently yields digital silence while capture by
-# numeric index works. Cost me an hour; hence the suffix.
+# Neither sink name may end in "monitor": PulseAudio derives its monitor
+# source as "<sink>.monitor", so a sink named wave3.monitor yields
+# wave3.monitor.monitor, which pactl and parecord cannot resolve.
 STREAM_SINK = "wave3.streammix"
 MONITOR_SINK = "wave3.monitormix"
 MIX_SINK = {STREAM: STREAM_SINK, MONITOR: MONITOR_SINK}
@@ -141,9 +126,8 @@ def _null_sink(name, description):
 def _loopback(channel, mix, description):
     """One channel feeding one mix.
 
-    Application channels are captured from their own sink's monitor; a
-    microphone channel is captured from a real source instead. Remixing
-    is deliberately left enabled so the mono Wave:3 capsule is upmixed
+    Application channels capture from their own sink's monitor, mic channels
+    from a real source. Remixing stays enabled so the mono capsule is upmixed
     across both channels of the stereo mixes.
     """
     if channel.is_mic:
@@ -178,8 +162,8 @@ def _loopback(channel, mix, description):
 def _hardware_out(target):
     """Send the Monitor Mix to the Wave:3 headphone output.
 
-    Kept in config rather than as a runtime pw-link so it survives a
-    PipeWire restart and a device replug.
+    Kept in config rather than as a runtime pw-link so it survives a PipeWire
+    restart and a device replug.
     """
     return f"""    {{  name = libpipewire-module-loopback
         args = {{
@@ -203,11 +187,11 @@ def _hardware_out(target):
 
 
 def generate_config(channels, hardware_out=None):
-    """Render the full pipewire.conf.d drop-in for this channel set.
+    """Render the pipewire.conf.d drop-in for this channel set.
 
-    Null sinks are factory objects and belong in context.objects; the
-    loopbacks are modules and must go in context.modules. PipeWire logs
-    "unknown object key 'name'" and silently skips them otherwise.
+    Null sinks are factory objects and belong in context.objects; loopbacks
+    are modules and must go in context.modules, or PipeWire logs "unknown
+    object key 'name'" and skips them.
     """
     objects = [
         _null_sink(STREAM_SINK, "Wave:3 Stream Mix"),
@@ -246,8 +230,8 @@ context.modules = [
 def resolve_node(match, media_class):
     """Find the exact node.name of a live node whose name contains match.
 
-    target.object needs an exact node name, so the serial-bearing ALSA
-    node name has to be looked up rather than guessed.
+    target.object needs an exact node name, and the ALSA node name carries a
+    device serial, so it must be looked up rather than guessed.
     """
     for obj in pw_dump():
         if obj.get("type") != "PipeWire:Interface:Node":
@@ -262,9 +246,8 @@ def resolve_node(match, media_class):
 def resolve_sources(channels, fx_source=None):
     """Replace prefix matches on mic channels with real node names.
 
-    When the effects rack is installed the mic channel is captured from
-    the rack's output instead of the raw capsule, so the processed signal
-    is what reaches both mixes.
+    With the effects rack installed the mic channel captures the rack output
+    instead of the raw capsule.
     """
     unresolved = []
     for ch in channels:
@@ -309,9 +292,8 @@ def restart_pipewire():
 def pw_dump():
     """Parse pw-dump output.
 
-    pw-dump can emit several top-level JSON arrays back to back rather
-    than one document, so decode repeatedly and concatenate instead of
-    assuming a single parse succeeds.
+    pw-dump can emit several top-level JSON arrays back to back rather than
+    one document, so decode repeatedly and concatenate.
     """
     out = subprocess.run(
         ["pw-dump"], capture_output=True, text=True, timeout=10, check=True
@@ -340,7 +322,7 @@ class Runtime:
         self.nodes = {}
 
     def refresh(self):
-        """Map node.name -> pipewire object id for everything we created."""
+        """Map node.name -> PipeWire object id for every wave3 node."""
         self.nodes = {}
         for obj in pw_dump():
             if obj.get("type") != "PipeWire:Interface:Node":

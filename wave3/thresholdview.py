@@ -1,14 +1,10 @@
 """Gate and limiter views.
 
-A gate threshold is impossible to set from a number, because the number is
-only meaningful relative to how loud you actually are. Both panels put the
-live level and the threshold on the same axis so the setting is a comparison
-rather than a guess.
-
-The open/closed and catching indicators are derived from measured level
-against the threshold you set. They are not read from the plugin - PipeWire
-does not publish LADSPA output ports - so they ignore hysteresis and the
-attack/release envelope. Close enough to aim with, not a plugin readout.
+Both panels put the live level and the threshold on the same axis so the
+setting is a comparison rather than a number. The open/closed and catching
+indicators are derived from measured level against the threshold, not read
+from the plugin (PipeWire publishes no LADSPA output ports), so they ignore
+hysteresis and the attack/release envelope.
 """
 
 import gi

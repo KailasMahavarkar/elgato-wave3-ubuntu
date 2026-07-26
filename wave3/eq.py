@@ -1,13 +1,9 @@
 """Parametric EQ band model and frequency-response maths.
 
-No GTK here. The response curve is computed from RBJ cookbook biquads
-evaluated on the unit circle, which is what LSP's para_equalizer runs when its
-filter mode is APO (DR) - so the drawn curve matches the audible curve rather
-than approximating it.
-
-The curve is a *model* of the filter response, not a measurement of the
-output. That distinction matters: it is exact for the coefficients we set, but
-it does not account for anything else in the chain.
+No GTK here. The response curve comes from RBJ cookbook biquads evaluated on
+the unit circle, which is what LSP's para_equalizer runs with its filter mode
+set to APO (DR), so the drawn curve matches the running filter. It models the
+filter response, not the measured output of the chain.
 """
 
 import cmath
@@ -37,8 +33,7 @@ TYPE_NAMES = {
 # Order shown in the filter-type menu.
 MENU_TYPES = (HIPASS, HISHELF, BELL, NOTCH, LOSHELF, LOPASS)
 
-# APO (DR) is the plain digital biquad the maths below describes. Pinning the
-# mode keeps the drawn curve honest.
+# APO (DR) is the plain digital biquad the maths below describes.
 APO_MODE = 6
 
 FREQ_MIN = 20.0
@@ -69,8 +64,7 @@ class Band:
         return self.kind in (BELL, HISHELF, LOSHELF)
 
 
-# Zone names follow how people actually describe voice problems, which is the
-# only reason a parametric EQ is approachable at all.
+# Zone names follow how people describe voice problems rather than frequency.
 DEFAULT_BANDS = (
     (0, "Rumble / Sub-bass", HIPASS, 80.0, 0.0, 0.7, (0.97, 0.45, 0.75)),
     (1, "Boom / Warmth", BELL, 160.0, 0.0, 1.0, (0.98, 0.82, 0.35)),
