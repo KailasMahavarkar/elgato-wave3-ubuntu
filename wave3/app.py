@@ -21,12 +21,14 @@ from . import fx  # noqa: E402
 from . import mixer  # noqa: E402
 from . import presetbar  # noqa: E402
 from . import protocol as p  # noqa: E402
+from . import voice  # noqa: E402
 from . import watchdog  # noqa: E402
 from .device import DeviceError, GuardViolation, PermissionError_, Wave3  # noqa: E402
 from .deckview import DeckPage  # noqa: E402
 from .fxview import FxPage  # noqa: E402
 from . import mixerview  # noqa: E402
 from .mixerview import MixerPage  # noqa: E402
+from .voiceview import VoicePage  # noqa: E402
 
 POLL_MS = 100
 WRITE_DEBOUNCE_MS = 180
@@ -309,6 +311,17 @@ class Window(Adw.ApplicationWindow):
                 "applications-multimedia-symbolic",
             )
 
+        self.voice_runtime = voice.Runtime()
+        self.voice_runtime.refresh()
+        self.voice_page = VoicePage(
+            self.voice_runtime, voice.load_settings(),
+            on_mode_change=self._voice_mode_changed,
+            active=voice.current_mode() == voice.VOICE,
+        )
+        self.stack.add_titled_with_icon(
+            self.voice_page, "voice", "Voice", "audio-input-microphone-symbolic"
+        )
+
         self.device_api = DeviceApi(self.dev)
         try:
             actions, self.deck_state = deck.build_actions(
@@ -417,6 +430,38 @@ class Window(Adw.ApplicationWindow):
 
         self._flash(f"Reset {' and '.join(done)} to defaults" if done
                     else "Nothing to reset", 5)
+
+    def _voice_mode_changed(self, use_voice):
+        """Swap between the voice chain and the manual rack.
+
+        Both write the same drop-in and publish the same source, so switching
+        is a rewrite plus a PipeWire restart rather than two chains fighting
+        over the capsule.
+        """
+        source = mixer.resolve_node(mixer.WAVE3_SOURCE_MATCH, "Audio/Source")
+        if source is None:
+            self._alert_banner("Wave:3 capsule not found; cannot switch mode.")
+            self.voice_page.set_active(not use_voice)
+            return
+
+        try:
+            if use_voice:
+                voice.install(self.voice_page.values, source)
+            else:
+                rack = fx.apply_state(fx.build_rack(), fx.load_state())
+                fx.install(rack, source)
+                voice.save_mode(voice.RACK)
+            mixer.restart_pipewire()
+        except Exception as exc:
+            self._alert_banner(f"Could not switch mode: {exc}")
+            self.voice_page.set_active(not use_voice)
+            return
+
+        self.voice_runtime.refresh()
+        self._flash(
+            "Voice mode on. The Effects page now shows the expert view of a "
+            "different chain." if use_voice
+            else "Voice mode off, manual effects rack restored.", 6)
 
     def _on_gave_up(self):
         GLib.idle_add(

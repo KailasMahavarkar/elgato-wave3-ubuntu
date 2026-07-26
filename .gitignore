@@ -20,3 +20,6 @@ Dockerfile*.test
 
 # Build artifacts - .deb ships as a release asset, not in the tree
 dist/
+
+# RNNoise build tree (built from source, not vendored)
+research/nsfv/
