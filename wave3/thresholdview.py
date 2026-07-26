@@ -15,7 +15,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 from . import meters  # noqa: E402
-from .gamewidgets import SliderRow  # noqa: E402
+from .gamewidgets import ControlRows  # noqa: E402
 
 FPS_MS = 33
 FLOOR_DB = -60.0
@@ -164,22 +164,6 @@ class ThresholdBar(Gtk.DrawingArea):
             PangoCairo.show_layout(cr, layout)
 
 
-class _ControlRows(Gtk.Box):
-    """Slider rows for the controls a threshold bar cannot express."""
-
-    def __init__(self, effect, controls, on_change):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        for control in controls:
-            row = SliderRow(
-                control.label, "", control.minimum, control.maximum,
-                control.default, control.step, control.unit,
-                lambda value, c=control: on_change(effect, c, value),
-                bipolar=(control.minimum < 0 < control.maximum),
-                digits=0 if control.step >= 1 else 1,
-            )
-            self.append(row)
-
-
 class _BarPanel(Gtk.Box):
     """Shared scaffolding: bar, state line, remaining controls, meter loop."""
 
@@ -224,7 +208,7 @@ class _BarPanel(Gtk.Box):
 
         rest = [c for c in effect.controls if c.port != self.THRESHOLD_PORT]
         if rest:
-            self.append(_ControlRows(effect, rest, on_change))
+            self.append(ControlRows(effect, rest, on_change))
 
         self.bank = meters.MeterBank()
         self.bank.add("level", device)

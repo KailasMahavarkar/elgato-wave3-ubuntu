@@ -19,6 +19,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 from . import meters  # noqa: E402
+from .gamewidgets import ControlRows  # noqa: E402
 from .widgets import LevelMeter  # noqa: E402
 
 HISTORY = 260
@@ -255,6 +256,11 @@ class CompressorPanel(Gtk.Box):
         note.set_xalign(0)
         note.set_wrap(True)
         self.append(note)
+
+        # Threshold is the draggable line, so it is not repeated as a slider.
+        rest = [c for c in effect.controls if c.port != THRESHOLD_PORT]
+        if rest:
+            self.append(ControlRows(effect, rest, on_change))
 
         threshold = self.controls.get(THRESHOLD_PORT)
         if threshold is not None:

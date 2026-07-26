@@ -93,6 +93,25 @@ def main():
     results.append(ok)
     print(f"  [{'PASS' if ok else 'FAIL'}] apply -> identify -> reset -> custom")
 
+    print("\n=== saved values outside a narrowed range are clamped ===")
+    # Ranges have tightened between releases (ratio was 1..100, release was
+    # 0..5000). A config written by an older version must not push an illegal
+    # value into the plugin or draw a handle off the end of the track.
+    fresh = fx.build_rack()
+    stale = {
+        "comp": {"enabled": True, "controls": {"Ratio": 64.0,
+                                               "Release time (ms)": 4000.0,
+                                               "Makeup gain (G)": -99.0}},
+    }
+    fx.apply_state(fresh, stale)
+    comp = next(e for e in fresh if e.ident == "comp")
+    out = [(c.port, c.default, c.minimum, c.maximum) for c in comp.controls
+           if not (c.minimum <= c.default <= c.maximum)]
+    ok = not out
+    results.append(ok)
+    print(f"  [{'PASS' if ok else 'FAIL'}] stale config clamped into range"
+          + ("" if ok else f" -> {out}"))
+
     bands = eq.build_bands()
     presets.apply_to_bands(bands, presets.EQUALISER[2])
     eq_named = presets.identify(rack["eq"], bands) == presets.EQUALISER[2].name

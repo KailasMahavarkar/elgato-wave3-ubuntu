@@ -143,7 +143,7 @@ def build_rack():
             "Evens out quiet and loud delivery. Stands in for ReaComp.",
             [
                 Control("Attack threshold (G)", "Threshold", DB, -60.0, 0.0, -18.0, "dB", 0.5),
-                Control("Ratio", "Ratio", RATIO, 1.0, 100.0, 3.0, ":1", 0.1),
+                Control("Ratio", "Ratio", RATIO, 1.0, 20.0, 3.0, ":1", 0.1),
                 Control("Attack time (ms)", "Attack", MS, 0.0, 100.0, 22.0, "ms", 1.0),
                 Control("Release time (ms)", "Release", MS, 0.0, 800.0, 120.0, "ms", 5.0),
                 Control("Makeup gain (G)", "Makeup", DB, -24.0, 24.0, 4.0, "dB", 0.5),
@@ -181,7 +181,11 @@ def apply_state(rack, state):
         effect.enabled = saved.get("enabled", effect.enabled)
         for control in effect.controls:
             if control.port in saved.get("controls", {}):
-                control.default = saved["controls"][control.port]
+                # Ranges have narrowed between releases, so a value saved by an
+                # older version can sit outside the control it belongs to.
+                value = float(saved["controls"][control.port])
+                control.default = max(control.minimum,
+                                      min(control.maximum, value))
     return rack
 
 
