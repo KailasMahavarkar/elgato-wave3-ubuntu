@@ -15,8 +15,8 @@ METER_FPS_MS = 33
 
 # Strips grow into the available height up to this ceiling, which keeps fader
 # travel usable on a tall screen without leaving a maximised window empty.
-MIN_STRIP_HEIGHT = 380
-MAX_STRIP_HEIGHT = 620
+MIN_STRIP_HEIGHT = 360
+MAX_STRIP_HEIGHT = 520
 
 # Bus meters clamp separately - they are horizontal and need far less width.
 MASTER_WIDTH = 1180
@@ -56,7 +56,7 @@ class MixerPage(Gtk.Box):
         self.append(master_clamp)
         self.append(Gtk.Separator(margin_top=14))
 
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         row.add_css_class("strip-row")
         row.set_halign(Gtk.Align.CENTER)
         row.set_valign(Gtk.Align.FILL)
