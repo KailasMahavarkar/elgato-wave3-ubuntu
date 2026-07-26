@@ -1,0 +1,12 @@
+#!/bin/sh
+# Reload udev after the rule is removed. Per-user PipeWire config written by
+# 'wave3 setup' lives in ~/.config and is intentionally left untouched.
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    udevadm control --reload-rules 2>/dev/null || true
+    gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
+    update-desktop-database -q /usr/share/applications 2>/dev/null || true
+fi
+
+exit 0

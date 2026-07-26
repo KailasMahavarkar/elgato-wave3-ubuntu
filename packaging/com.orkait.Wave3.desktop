@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Wave:3
+GenericName=Microphone Control Panel
+Comment=Control the Elgato Wave:3 and mix audio for streaming
+Exec=wave3
+Icon=com.orkait.Wave3
+Terminal=false
+Categories=AudioVideo;Audio;Mixer;
+Keywords=elgato;wave;microphone;mixer;stream;wavelink;
+StartupNotify=true

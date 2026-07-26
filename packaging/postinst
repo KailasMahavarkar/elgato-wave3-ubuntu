@@ -1,0 +1,23 @@
+#!/bin/sh
+# Reload udev so the uaccess rule applies, and refresh desktop caches.
+set -e
+
+if [ "$1" = "configure" ]; then
+    udevadm control --reload-rules 2>/dev/null || true
+    udevadm trigger --subsystem-match=usb --attr-match=idVendor=0fd9 2>/dev/null || true
+    gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
+    update-desktop-database -q /usr/share/applications 2>/dev/null || true
+
+    cat <<'NOTE'
+
+wave3 installed.
+
+  1. Replug the Wave:3, or reboot, so USB access and the no-suspend rule apply.
+  2. Restart the audio session:  systemctl --user restart wireplumber pipewire
+  3. Create the mixer and effects rack:  wave3 setup
+  4. Launch from your app menu, or run:  wave3
+
+NOTE
+fi
+
+exit 0

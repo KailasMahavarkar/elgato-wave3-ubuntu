@@ -17,3 +17,6 @@ __pycache__/
 *.egg-info/
 .venv/
 Dockerfile*.test
+
+# Build artifacts - .deb ships as a release asset, not in the tree
+dist/
