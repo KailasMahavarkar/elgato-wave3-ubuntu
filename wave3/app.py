@@ -214,6 +214,7 @@ class Window(Adw.ApplicationWindow):
         self._last_config = None
         self._writing = False
         self._alert = False
+        self._flash_source = None
         self._pending = {}
         self._intent = {}
 
@@ -345,7 +346,8 @@ class Window(Adw.ApplicationWindow):
                 self.fx_runtime if rack else None, rack,
             )
             self.stack.add_titled_with_icon(
-                DeckPage(actions), "deck", "Deck", "view-grid-symbolic"
+                DeckPage(actions, on_error=self._alert_banner),
+                "deck", "Deck", "view-grid-symbolic"
             )
         except Exception as exc:
             self._flash(f"Deck unavailable: {exc}")
@@ -512,14 +514,26 @@ class Window(Adw.ApplicationWindow):
 
     def _flash(self, text, seconds=4):
         """Transient note that clears itself."""
+        self._cancel_flash()
         self.banner.remove_css_class("error")
         self.banner.set_title(text)
         self.banner.set_revealed(True)
-        GLib.timeout_add_seconds(
-            seconds, lambda: (self.banner.set_revealed(False), GLib.SOURCE_REMOVE)[1]
-        )
+        self._flash_source = GLib.timeout_add_seconds(seconds, self._flash_expired)
+
+    def _flash_expired(self):
+        self._flash_source = None
+        # An error raised while this note was on screen owns the banner now.
+        if not self._alert:
+            self.banner.set_revealed(False)
+        return GLib.SOURCE_REMOVE
+
+    def _cancel_flash(self):
+        if self._flash_source is not None:
+            GLib.source_remove(self._flash_source)
+            self._flash_source = None
 
     def _alert_banner(self, text):
+        self._cancel_flash()
         self._alert = True
         self.banner.set_title(text)
         self.banner.add_css_class("error")

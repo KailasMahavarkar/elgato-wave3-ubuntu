@@ -20,8 +20,9 @@ SHORTCUT_KEYS = "1234567890"
 class Tile(Gtk.Button):
     """One quick action, rendered as a large tile."""
 
-    def __init__(self, action, index):
+    def __init__(self, action, index, on_error=None):
         super().__init__()
+        self._on_error = on_error
         self.action = action
         self.add_css_class("deck-tile")
         if action.kind == deck.DANGER:
@@ -63,7 +64,14 @@ class Tile(Gtk.Button):
     def _clicked(self, _b):
         if not self.action.enabled():
             return
-        self.action.toggle()
+        try:
+            self.action.toggle()
+        except Exception as exc:
+            # A guarded write can be rolled back and the device can vanish
+            # mid-click. Either way the tile must not lie about its state, and
+            # the failure belongs on screen rather than on stderr.
+            if self._on_error is not None:
+                self._on_error(f"{self.action.label}: {exc}")
         self.refresh()
 
     def refresh(self):
@@ -82,9 +90,10 @@ class Tile(Gtk.Button):
 
 
 class DeckPage(Gtk.Box):
-    def __init__(self, actions):
+    def __init__(self, actions, on_error=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.tiles = []
+        self._on_error = on_error
         self._refresh_source = None
 
         scroller = Gtk.ScrolledWindow()
@@ -119,7 +128,7 @@ class DeckPage(Gtk.Box):
             grid.set_column_spacing(10)
             grid.set_row_spacing(10)
             for action in members:
-                tile = Tile(action, index)
+                tile = Tile(action, index, on_error)
                 index += 1
                 self.tiles.append(tile)
                 child = Gtk.FlowBoxChild()

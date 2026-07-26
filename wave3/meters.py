@@ -45,20 +45,28 @@ class PeakReader:
     def start(self):
         if self._thread is not None:
             return
-        self._stop.clear()
-        self._thread = threading.Thread(target=self._run, daemon=True)
+        # Each run owns its event. Clearing a shared one would revive a thread
+        # that stop() had already told to exit, leaving two recorders on the
+        # same node with only one of them reachable through self._proc.
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, args=(self._stop,),
+                                        daemon=True)
         self._thread.start()
 
-    def stop(self):
+    def stop(self, timeout=3.0):
         self._stop.set()
-        if self._proc is not None:
-            self._proc.terminate()
+        proc = self._proc
+        if proc is not None:
+            proc.terminate()
             try:
-                self._proc.wait(timeout=2)
+                proc.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                self._proc.kill()
-            self._proc = None
+                proc.kill()
+        thread = self._thread
+        if thread is not None:
+            thread.join(timeout)
         self._thread = None
+        self._proc = None
         self.peak = 0.0
         self._updated = 0.0
 
@@ -70,20 +78,24 @@ class PeakReader:
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0,
         )
 
-    def _run(self):
+    def _run(self, stop):
         """Read peaks, restarting the recorder if it exits.
 
         A recorder exits when its source disappears or suspends; without a
         restart the meter would read -90 for the rest of the session.
         """
-        while not self._stop.is_set():
+        while not stop.is_set():
             try:
-                self._proc = self._spawn()
+                proc = self._spawn()
             except OSError:
                 return
+            if stop.is_set():
+                proc.terminate()
+                return
+            self._proc = proc
 
-            stream = self._proc.stdout
-            while not self._stop.is_set():
+            stream = proc.stdout
+            while not stop.is_set():
                 data = stream.read(CHUNK_BYTES)
                 if not data:
                     break
@@ -94,7 +106,7 @@ class PeakReader:
                 self.peak = max(abs(s) for s in samples) / 32768.0
                 self._updated = time.monotonic()
 
-            if self._stop.wait(RESTART_DELAY):
+            if stop.wait(RESTART_DELAY):
                 return
 
     @property

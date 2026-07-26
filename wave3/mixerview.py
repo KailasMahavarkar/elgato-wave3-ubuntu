@@ -18,8 +18,6 @@ METER_FPS_MS = 33
 MIN_STRIP_HEIGHT = 360
 MAX_STRIP_HEIGHT = 520
 
-# Bus meters clamp separately - they are horizontal and need far less width.
-
 # Applications start attenuated so the mic sits above them; the mic starts at
 # unity because its level belongs to the hardware gain knob.
 DEFAULT_PCT = 75.0
@@ -110,13 +108,20 @@ class MixerPage(Gtk.Box):
             self._meter_source = GLib.timeout_add(METER_FPS_MS, self._tick_meters)
 
     def resync_from_runtime(self):
-        """Pull the live volumes back into the fader positions."""
+        """Pull the live volumes back into the fader positions.
+
+        One pw-dump for the whole mixer. Asking wpctl per node meant a fresh
+        process for each of eighteen faders, all of it on the main loop, so
+        every switch back to this tab froze the window for about a third of a
+        second.
+        """
+        levels = self.runtime.get_levels(self.channels)
         for channel in self.channels:
             strip = self.strips.get(channel.ident)
             if strip is None:
                 continue
             for mix in mixer.MIXES:
-                reading = self.runtime.get_level(channel, mix)
+                reading = levels.get((channel.ident, mix))
                 if reading is None:
                     continue
                 linear, muted = reading
@@ -136,6 +141,9 @@ class MixerPage(Gtk.Box):
         return True
 
     def load_levels(self):
+        # Read first: a node already sitting at the saved value needs no write,
+        # and on a normal restart that is all of them.
+        live = self.runtime.get_levels(self.channels)
         for channel in self.channels:
             saved = self.levels.get(channel.ident, {})
             for mix in mixer.MIXES:
@@ -147,6 +155,12 @@ class MixerPage(Gtk.Box):
                                 else DEFAULT_PCT)
                 muted = entry.get("muted", False)
                 self.strips[channel.ident].sync(mix, pct, muted)
+                current = live.get((channel.ident, mix))
+                if current is not None and abs(current[0] - pct_to_linear(pct)) < 5e-3:
+                    if current[1] == muted:
+                        continue
+                    self.runtime.set_mute(channel, mix, muted)
+                    continue
                 self.runtime.set_level(channel, mix, pct_to_linear(pct))
                 self.runtime.set_mute(channel, mix, muted)
 
