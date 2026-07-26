@@ -122,10 +122,13 @@ class FieldRow:
         self._syncing = False
         self.verified = False
 
-        self.badge = Gtk.Label(label="guarded", css_classes=["accent", "caption"])
+        # A dot rather than a word: the distinction matters but repeating it
+        # on every row is noise. The legend at the top of the page carries it.
+        self.badge = Gtk.Label(label="\u25cf", css_classes=["state-dot", "guarded"])
+        self.badge.set_valign(Gtk.Align.CENTER)
         self.badge.set_tooltip_text(
-            "Offset recovered from static analysis. Every write is read back "
-            "and rolled back if it disturbs any other byte."
+            "Guarded: offset recovered from static analysis. Every write is "
+            "read back and rolled back if it disturbs any other byte."
         )
 
         if field.kind == p.BOOL:
@@ -186,9 +189,10 @@ class FieldRow:
         if self.verified:
             return
         self.verified = True
-        self.badge.set_label("verified")
-        self.badge.set_css_classes(["success", "caption"])
-        self.badge.set_tooltip_text("Offset confirmed by observing the hardware change it.")
+        self.badge.set_css_classes(["state-dot", "verified"])
+        self.badge.set_tooltip_text(
+            "Verified: this offset was confirmed by watching the device change it."
+        )
 
 
 class Window(Adw.ApplicationWindow):
@@ -231,14 +235,24 @@ class Window(Adw.ApplicationWindow):
 
         self.banner = Adw.Banner(title="", revealed=False)
 
-        self.legend = Adw.PreferencesGroup(
-            title="Hardware controls",
-            description=(
-                "Offsets badged verified were confirmed by watching the device "
-                "change them. Guarded offsets come from static analysis; each "
-                "write is read back and rolled back if it disturbs any other byte."
-            ),
-        )
+        self.legend = Adw.PreferencesGroup(title="Hardware controls")
+        key = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        key.set_margin_top(2)
+        for css, label, hint in (
+            ("verified", "observed on device",
+             "Verified: confirmed by watching the device change this offset."),
+            ("guarded", "from static analysis",
+             "Guarded: recovered by analysis. Every write is read back and "
+             "rolled back if it disturbs any other byte."),
+        ):
+            item = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            item.set_tooltip_text(hint)
+            dot = Gtk.Label(label="\u25cf", css_classes=["state-dot", css])
+            dot.set_valign(Gtk.Align.CENTER)
+            item.append(dot)
+            item.append(Gtk.Label(label=label, css_classes=["legend-text"]))
+            key.append(item)
+        self.legend.set_header_suffix(key)
         groups.append(self.legend)
 
         for group_name in GROUPS:

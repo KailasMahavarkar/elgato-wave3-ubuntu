@@ -17,6 +17,7 @@ from . import eqview  # noqa: E402
 from . import fx  # noqa: E402
 from . import presetbar  # noqa: E402
 from . import presets  # noqa: E402
+from .gamewidgets import SliderRow  # noqa: E402
 from . import thresholdview  # noqa: E402
 
 APPLY_DEBOUNCE_MS = 80
@@ -96,25 +97,24 @@ class ControlRow:
             self.row.set_selected(int(control.default))
             self.row.connect("notify::selected", self._emit)
         else:
-            adjustment = Gtk.Adjustment(
-                lower=control.minimum, upper=control.maximum,
-                step_increment=control.step,
-                page_increment=max(control.step * 10, control.step),
-                value=control.default,
-            )
-            self.row = Adw.SpinRow(
-                title=control.label, adjustment=adjustment,
+            self.row = SliderRow(
+                control.label, "", control.minimum, control.maximum,
+                control.default, control.step, control.unit,
+                self._slider_changed,
+                bipolar=(control.minimum < 0 < control.maximum),
                 digits=0 if control.step >= 1 else 1,
             )
-            if control.unit:
-                self.row.set_subtitle(control.unit)
-            self.row.connect("notify::value", self._emit)
 
     @property
     def value(self):
         if self.control.kind == fx.ENUM:
             return float(self.row.get_selected())
-        return self.row.get_value()
+        return self.row.slider.value
+
+    def _slider_changed(self, value):
+        if self._syncing:
+            return
+        self._on_change(self.effect, self.control, value)
 
     def _emit(self, *_a):
         if self._syncing:
