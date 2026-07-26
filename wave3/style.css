@@ -708,3 +708,124 @@ scale.fader:hover slider {
 .slider-title { font-size: 10px; letter-spacing: 0.12em; }
 .slider-value { font-size: 18px; }
 .voice-hero-title { font-size: 13px; letter-spacing: 0.14em; }
+
+/* ---------------------------------------------------------------------- */
+/*  Consistency: one accent everywhere, including stock Adwaita widgets.   */
+/*                                                                        */
+/*  Switches, spin buttons and selections default to the system accent,    */
+/*  which left the Effects page violet while the rest of the app was blue. */
+/*  Redefining the libadwaita colours makes every stock widget agree.      */
+/* ---------------------------------------------------------------------- */
+
+@define-color accent_bg_color @accent;
+@define-color accent_fg_color #0b1220;
+@define-color accent_color #7fb0ff;
+
+@define-color window_bg_color #101114;
+@define-color view_bg_color @surface;
+@define-color card_bg_color @surface;
+@define-color headerbar_bg_color #131418;
+@define-color popover_bg_color #1b1d22;
+@define-color dialog_bg_color #16181c;
+
+/* ---- switches read as the same control on every page ----------------- */
+
+switch {
+  background-color: #0d0f13;
+  border: 1px solid @rim;
+}
+
+switch:checked {
+  background-color: @accent;
+  border-color: @accent;
+}
+
+switch > slider {
+  background-color: #c9ced8;
+  border: none;
+  box-shadow: 0 1px 2px alpha(#000000, 0.5);
+}
+
+switch:checked > slider { background-color: #ffffff; }
+
+/* ---- icons: one size and one weight per context ---------------------- */
+
+.tile-icon {
+  -gtk-icon-size: 24px;
+  opacity: 0.55;
+  color: alpha(@ink, 0.9);
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.deck-tile:hover .tile-icon { opacity: 0.8; }
+.deck-tile.engaged .tile-icon { opacity: 1; }
+
+/* View switcher icons were heavier than their labels. */
+viewswitcher button image,
+headerbar button image {
+  -gtk-icon-size: 15px;
+  opacity: 0.75;
+}
+
+viewswitcher button:checked image { opacity: 1; }
+
+.mute-button image { -gtk-icon-size: 13px; }
+
+/* ---- popovers and dropdowns match the surfaces ----------------------- */
+
+dropdown > button,
+popover > contents {
+  background-color: @surface2;
+  border: 1px solid @rim;
+}
+
+dropdown > button { border-radius: 7px; }
+
+/* ---- preference rows sit on our surfaces, not Adwaita's -------------- */
+
+row.activatable:hover { background-color: alpha(@ink, 0.04); }
+
+spinbutton button image { -gtk-icon-size: 14px; opacity: 0.6; }
+spinbutton button:hover image { opacity: 0.95; }
+
+/* ---- hardware page: same surfaces and badge styling as everywhere ----- */
+
+.verified-badge, .guarded-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.verified-badge {
+  background-color: alpha(#3ec98a, 0.15);
+  color: #6fdcaa;
+}
+
+.guarded-badge {
+  background-color: alpha(@accent, 0.15);
+  color: #7fb0ff;
+}
+
+/* ---- state dots: colour carries it, the legend explains it ------------ */
+
+.state-dot {
+  font-size: 11px;
+  padding: 0 2px;
+}
+
+.state-dot.verified { color: #4ad295; }
+.state-dot.guarded  { color: #5a8ede; }
+
+.legend-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: alpha(@ink, 0.75);
+}
+
+.legend-text {
+  font-size: 11px;
+  color: alpha(@ink, 0.40);
+}

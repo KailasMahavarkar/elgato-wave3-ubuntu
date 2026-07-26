@@ -15,6 +15,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 from . import meters  # noqa: E402
+from .gamewidgets import SliderRow  # noqa: E402
 
 FPS_MS = 33
 FLOOR_DB = -60.0
@@ -163,29 +164,20 @@ class ThresholdBar(Gtk.DrawingArea):
             PangoCairo.show_layout(cr, layout)
 
 
-class _ControlRows(Adw.PreferencesGroup):
-    """Plain numeric rows for the controls a bar cannot express."""
+class _ControlRows(Gtk.Box):
+    """Slider rows for the controls a threshold bar cannot express."""
 
     def __init__(self, effect, controls, on_change):
-        super().__init__()
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         for control in controls:
-            adjustment = Gtk.Adjustment(
-                lower=control.minimum, upper=control.maximum,
-                step_increment=control.step,
-                page_increment=max(control.step * 10, control.step),
-                value=control.default,
-            )
-            row = Adw.SpinRow(
-                title=control.label, adjustment=adjustment,
+            row = SliderRow(
+                control.label, "", control.minimum, control.maximum,
+                control.default, control.step, control.unit,
+                lambda value, c=control: on_change(effect, c, value),
+                bipolar=(control.minimum < 0 < control.maximum),
                 digits=0 if control.step >= 1 else 1,
             )
-            if control.unit:
-                row.set_subtitle(control.unit)
-            row.connect(
-                "notify::value",
-                lambda r, _p, c=control: on_change(effect, c, r.get_value()),
-            )
-            self.add(row)
+            self.append(row)
 
 
 class _BarPanel(Gtk.Box):

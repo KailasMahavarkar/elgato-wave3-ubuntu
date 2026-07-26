@@ -128,8 +128,8 @@ def build_rack():
                 # Reduction is how far a closed gate attenuates. LSP defaults
                 # it to 1.0 (0 dB), leaving the gate inert unless set.
                 Control("Reduction (G)", "Reduction", DB, -72.0, 0.0, -48.0, "dB", 1.0),
-                Control("Attack (ms)", "Attack", MS, 0.0, 2000.0, 5.0, "ms", 1.0),
-                Control("Release (ms)", "Release", MS, 0.0, 5000.0, 150.0, "ms", 5.0),
+                Control("Attack (ms)", "Attack", MS, 0.0, 100.0, 5.0, "ms", 1.0),
+                Control("Release (ms)", "Release", MS, 0.0, 800.0, 150.0, "ms", 5.0),
                 Control("Makeup gain (G)", "Makeup", DB, -24.0, 24.0, 0.0, "dB", 0.5),
             ],
         ),
@@ -144,8 +144,8 @@ def build_rack():
             [
                 Control("Attack threshold (G)", "Threshold", DB, -60.0, 0.0, -18.0, "dB", 0.5),
                 Control("Ratio", "Ratio", RATIO, 1.0, 100.0, 3.0, ":1", 0.1),
-                Control("Attack time (ms)", "Attack", MS, 0.0, 2000.0, 22.0, "ms", 1.0),
-                Control("Release time (ms)", "Release", MS, 0.0, 5000.0, 120.0, "ms", 5.0),
+                Control("Attack time (ms)", "Attack", MS, 0.0, 100.0, 22.0, "ms", 1.0),
+                Control("Release time (ms)", "Release", MS, 0.0, 800.0, 120.0, "ms", 5.0),
                 Control("Makeup gain (G)", "Makeup", DB, -24.0, 24.0, 4.0, "dB", 0.5),
             ],
         ),
