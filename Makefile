@@ -26,6 +26,7 @@ test:
 	python3 tests/test_ui_race.py
 	python3 tests/test_mix_isolation.py
 	python3 tests/test_watchdog.py
+	python3 tests/test_presets.py
 	python3 tests/test_meters.py
 
 install-fx:

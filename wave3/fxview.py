@@ -15,6 +15,8 @@ from . import compview  # noqa: E402
 from . import eq  # noqa: E402
 from . import eqview  # noqa: E402
 from . import fx  # noqa: E402
+from . import presetbar  # noqa: E402
+from . import presets  # noqa: E402
 from . import thresholdview  # noqa: E402
 
 APPLY_DEBOUNCE_MS = 80
@@ -131,6 +133,7 @@ class FxPage(Gtk.Box):
         self._pending = {}
         self._selected = rack[0]
         self._detail_group = None
+        self._preset_bar = None
         self._eq_bands = self._load_eq_bands(rack)
 
         chain = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -231,6 +234,12 @@ class FxPage(Gtk.Box):
             title=effect.label, description=effect.description
         )
 
+        self._preset_bar = presetbar.PresetBar(
+            effect, self._apply_preset,
+            bands=self._eq_bands if effect.ident == "eq" else None,
+        )
+        group.set_header_suffix(self._preset_bar)
+
         # EQ gets a curve editor, the compressor a waveform.
         if effect.ident == "eq":
             group.add(self._wrap(eqview.EqPanel(self._eq_bands, self._eq_band_changed)))
@@ -255,6 +264,42 @@ class FxPage(Gtk.Box):
 
         self.detail.append(group)
         self._detail_group = group
+
+    def _apply_preset(self, preset):
+        """Push a preset to the device and rebuild the panel to match."""
+        effect = self._selected
+
+        if preset.bands:
+            for band in presets.apply_to_bands(self._eq_bands, preset):
+                self._eq_band_changed(band)
+        for control in presets.apply_to_effect(effect, preset):
+            self.runtime.set_control(effect, control, control.default)
+
+        self._persist()
+        # The panels read control values when built, so rebuild rather than
+        # trying to push new values into every widget individually.
+        self._render_detail()
+        self._refresh_selection()
+
+    def reset_all(self):
+        """Return every effect in the rack to its default preset."""
+        for effect in self.rack:
+            preset = presets.default_for(effect.ident)
+            if preset is None:
+                continue
+            if preset.bands:
+                presets.apply_to_bands(self._eq_bands, preset)
+                for band in self._eq_bands:
+                    self._eq_band_changed(band)
+            for control in presets.apply_to_effect(effect, preset):
+                self.runtime.set_control(effect, control, control.default)
+            if not effect.enabled:
+                effect.enabled = True
+                self.runtime.set_enabled(effect, True)
+                self.stages[effect.ident].toggle.set_active(True)
+        self._persist()
+        self._render_detail()
+        self._refresh_selection()
 
     @staticmethod
     def _wrap(widget):

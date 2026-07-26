@@ -123,7 +123,8 @@ def build_rack():
             "gate", "Noise Gate", "gate_mono",
             "Silences the channel between words. Stands in for ReaGate.",
             [
-                Control("Curve threshold (G)", "Threshold", DB, -60.0, 0.0, -24.0, "dB", 0.5),
+                Control("Curve threshold (G)", "Open threshold", DB, -60.0, 0.0, -26.0, "dB", 0.5),
+                Control("Hysteresis threshold (G)", "Close threshold", DB, -60.0, 0.0, -34.0, "dB", 0.5),
                 # Reduction is how far a closed gate attenuates. LSP defaults
                 # it to 1.0 (0 dB), leaving the gate inert unless set.
                 Control("Reduction (G)", "Reduction", DB, -72.0, 0.0, -48.0, "dB", 1.0),
@@ -143,7 +144,7 @@ def build_rack():
             [
                 Control("Attack threshold (G)", "Threshold", DB, -60.0, 0.0, -18.0, "dB", 0.5),
                 Control("Ratio", "Ratio", RATIO, 1.0, 100.0, 3.0, ":1", 0.1),
-                Control("Attack time (ms)", "Attack", MS, 0.0, 2000.0, 15.0, "ms", 1.0),
+                Control("Attack time (ms)", "Attack", MS, 0.0, 2000.0, 22.0, "ms", 1.0),
                 Control("Release time (ms)", "Release", MS, 0.0, 5000.0, 120.0, "ms", 5.0),
                 Control("Makeup gain (G)", "Makeup", DB, -24.0, 24.0, 4.0, "dB", 0.5),
             ],
@@ -196,6 +197,10 @@ def rack_to_state(rack):
 
 def _node(effect):
     controls = {c.port: c.to_plugin(c.default) for c in effect.controls}
+    if effect.ident == "gate":
+        # Enables the second (close) threshold; without it LSP ignores the
+        # hysteresis value and the gate chatters between syllables.
+        controls["Hysteresis"] = 1.0
     controls["Bypass"] = 0.0 if effect.enabled else 1.0
     body = "\n".join(
         f'                          "{k}" = {v:.6f}' for k, v in controls.items()

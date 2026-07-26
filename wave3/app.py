@@ -14,16 +14,18 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import deck  # noqa: E402
 from . import fx  # noqa: E402
 from . import mixer  # noqa: E402
+from . import presetbar  # noqa: E402
 from . import protocol as p  # noqa: E402
 from . import watchdog  # noqa: E402
 from .device import DeviceError, GuardViolation, PermissionError_, Wave3  # noqa: E402
 from .deckview import DeckPage  # noqa: E402
 from .fxview import FxPage  # noqa: E402
+from . import mixerview  # noqa: E402
 from .mixerview import MixerPage  # noqa: E402
 
 POLL_MS = 100
@@ -344,6 +346,17 @@ class Window(Adw.ApplicationWindow):
         switcher = Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE)
         header.set_title_widget(switcher)
 
+        menu = Gio.Menu()
+        menu.append("Reset All Settings...", "win.reset-all")
+        menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic")
+        menu_button.set_menu_model(menu)
+        menu_button.set_tooltip_text("Main menu")
+        header.pack_end(menu_button)
+
+        action = Gio.SimpleAction.new("reset-all", None)
+        action.connect("activate", self._confirm_reset_all)
+        self.add_action(action)
+
         toolbar = Adw.ToolbarView()
         toolbar.add_top_bar(header)
         toolbar.add_top_bar(self.banner)
@@ -372,6 +385,36 @@ class Window(Adw.ApplicationWindow):
             f"({count} time{'s' if count > 1 else ''} this session)",
             6,
         )
+
+    def _confirm_reset_all(self, *_a):
+        presetbar.reset_dialog(self, self._do_reset_all)
+
+    def _do_reset_all(self):
+        """Effects back to defaults, faders back to their starting position.
+
+        Deliberately leaves the hardware alone and keeps what the app has
+        learned about which offsets the device confirmed itself: those are
+        observations, not preferences, and re-learning them needs the physical
+        controls again.
+        """
+        done = []
+        page = getattr(self, "fx_page", None)
+        if page is not None:
+            page.reset_all()
+            done.append("effects")
+
+        if self.mixer_page is not None:
+            for channel in self.mixer_page.channels:
+                for mix in mixer.MIXES:
+                    self.mixer_page.strips[channel.ident].sync(mix, 75.0, False)
+                    self.runtime.set_level(channel, mix, mixerview.pct_to_linear(75.0))
+                    self.runtime.set_mute(channel, mix, False)
+            self.mixer_page.levels = {}
+            mixer.save_levels({})
+            done.append("mixer levels")
+
+        self._flash(f"Reset {' and '.join(done)} to defaults" if done
+                    else "Nothing to reset", 5)
 
     def _on_gave_up(self):
         GLib.idle_add(
