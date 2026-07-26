@@ -363,6 +363,40 @@ class Runtime:
         r = self._wpctl("set-mute", str(node), "1" if muted else "0")
         return r.returncode == 0
 
+    def get_levels(self, channels):
+        """Read every fader in one pw-dump instead of one wpctl call each.
+
+        wpctl reports the cube root of the node's channelVolumes, so the
+        conversion here is what keeps a batched read agreeing with get_level.
+        """
+        volumes = {}
+        try:
+            objects = pw_dump()
+        except (subprocess.SubprocessError, OSError, ValueError):
+            return {}
+        for obj in objects:
+            if obj.get("type") != "PipeWire:Interface:Node":
+                continue
+            info = obj.get("info") or {}
+            name = (info.get("props") or {}).get("node.name", "")
+            if not name.startswith("wave3.play."):
+                continue
+            for entry in (info.get("params") or {}).get("Props") or []:
+                if "channelVolumes" not in entry:
+                    continue
+                channel_volumes = entry.get("channelVolumes") or [0.0]
+                volumes[name] = (max(channel_volumes) ** (1.0 / 3.0),
+                                 bool(entry.get("mute")))
+                break
+
+        out = {}
+        for channel in channels:
+            for mix in MIXES:
+                reading = volumes.get(channel.playback_node(mix))
+                if reading is not None:
+                    out[(channel.ident, mix)] = reading
+        return out
+
     def get_level(self, channel, mix):
         node = self.node_id(channel.playback_node(mix))
         if node is None:
