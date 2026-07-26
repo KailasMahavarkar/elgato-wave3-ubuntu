@@ -21,6 +21,11 @@ MAX_STRIP_HEIGHT = 620
 # Bus meters clamp separately - they are horizontal and need far less width.
 MASTER_WIDTH = 1180
 
+# Applications start attenuated so the mic sits above them; the mic starts at
+# unity because its level belongs to the hardware gain knob.
+DEFAULT_PCT = 75.0
+DEFAULT_MIC_PCT = 100.0
+
 MIX_LABELS = {mixer.STREAM: "STREAM", mixer.MONITOR: "MONITOR"}
 
 
@@ -133,7 +138,11 @@ class MixerPage(Gtk.Box):
             saved = self.levels.get(channel.ident, {})
             for mix in mixer.MIXES:
                 entry = saved.get(mix, {})
-                pct = entry.get("level", 75.0)
+                # The mic sits at unity by default: its level is set by the
+                # hardware gain knob, so attenuating it here just throws away
+                # signal-to-noise and makes the voice sound damped.
+                pct = entry.get("level", DEFAULT_MIC_PCT if channel.is_mic
+                                else DEFAULT_PCT)
                 muted = entry.get("muted", False)
                 self.strips[channel.ident].sync(mix, pct, muted)
                 self.runtime.set_level(channel, mix, pct_to_linear(pct))

@@ -132,11 +132,16 @@ def _loopback(channel, mix, description):
     """
     if channel.is_mic:
         capture_target = f'                target.object       = "{channel.source}"'
+        # The capsule is mono. Declaring the playback side stereo makes the
+        # loopback map channels positionally, so the voice lands on FL and FR
+        # stays silent. Keeping it mono lets the sink upmix it to both sides.
+        playback_position = "MONO"
     else:
         capture_target = (
             f'                target.object       = "{channel.sink_name}"\n'
             f"                stream.capture.sink = true"
         )
+        playback_position = "FL FR"
     return f"""    {{  name = libpipewire-module-loopback
         args = {{
             node.description = "{description}"
@@ -152,7 +157,7 @@ def _loopback(channel, mix, description):
                 node.description    = "{description}"
                 media.class         = Stream/Output/Audio
                 target.object       = "{MIX_SINK[mix]}"
-                audio.position      = [ FL FR ]
+                audio.position      = [ {playback_position} ]
                 node.dont-reconnect = false
             }}
         }}

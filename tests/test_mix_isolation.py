@@ -51,6 +51,32 @@ def rms(path):
     return math.sqrt(sum(v * v for v in vals) / len(vals)) / 32768.0
 
 
+def snapshot(rt, channels):
+    """Record every fader so the test can put the mixer back."""
+    saved = {}
+    for ch in channels:
+        for mix in mixer.MIXES:
+            reading = rt.get_level(ch, mix)
+            if reading is not None:
+                saved[(ch.ident, mix)] = reading
+    return saved
+
+
+def restore(rt, channels, saved):
+    """Put the mixer back exactly as it was found.
+
+    Without this the test leaves every channel at zero and the mic ~18 dB
+    down, which is indistinguishable from a broken microphone.
+    """
+    by_ident = {c.ident: c for c in channels}
+    for (ident, mix), (level, muted) in saved.items():
+        channel = by_ident.get(ident)
+        if channel is None:
+            continue
+        rt.set_level(channel, mix, level)
+        rt.set_mute(channel, mix, muted)
+
+
 def run_case(rt, channels, game, stream_vol, monitor_vol):
     for ch in channels:
         for mix in mixer.MIXES:
@@ -100,6 +126,7 @@ def main():
         print("FAIL: loopback nodes missing:", missing[:4])
         return 1
 
+    saved = snapshot(rt, channels)
     print(f"resolved {len(found)} wave3 nodes")
 
     probe = rt.set_level(game, mixer.STREAM, 0.5)
@@ -117,10 +144,17 @@ def main():
     ]
 
     results = []
-    for label, sv, mv in cases:
-        s, m = run_case(rt, channels, game, sv, mv)
-        results.append((label, sv, mv, s, m))
-        print(f"  {label}\n      stream rms={s:.4f}   monitor rms={m:.4f}")
+    try:
+        for label, sv, mv in cases:
+            s, m = run_case(rt, channels, game, sv, mv)
+            results.append((label, sv, mv, s, m))
+            print(f"  {label}\n      stream rms={s:.4f}   monitor rms={m:.4f}")
+    finally:
+        # This test drives every fader to zero. Leaving it that way is
+        # indistinguishable from a broken microphone, so restore even on
+        # failure or interrupt.
+        restore(rt, channels, saved)
+        print("\n  mixer levels restored")
 
     print()
     floor = 0.005

@@ -47,7 +47,7 @@ If you stream or record on Linux and you own a Wave:3, this should feel like the
 **The easy way** - grab the `.deb` from [Releases](https://github.com/KailasMahavarkar/elgato-wave3-ubuntu/releases):
 
 ```bash
-sudo apt install ./wave3_1.1.0_all.deb
+sudo apt install ./wave3_1.1.1_all.deb
 ```
 
 **From source:**

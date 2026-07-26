@@ -405,9 +405,11 @@ class Window(Adw.ApplicationWindow):
 
         if self.mixer_page is not None:
             for channel in self.mixer_page.channels:
+                pct = (mixerview.DEFAULT_MIC_PCT if channel.is_mic
+                       else mixerview.DEFAULT_PCT)
                 for mix in mixer.MIXES:
-                    self.mixer_page.strips[channel.ident].sync(mix, 75.0, False)
-                    self.runtime.set_level(channel, mix, mixerview.pct_to_linear(75.0))
+                    self.mixer_page.strips[channel.ident].sync(mix, pct, False)
+                    self.runtime.set_level(channel, mix, mixerview.pct_to_linear(pct))
                     self.runtime.set_mute(channel, mix, False)
             self.mixer_page.levels = {}
             mixer.save_levels({})
