@@ -33,7 +33,7 @@ class GameSlider(Gtk.DrawingArea):
         self.low = low
         self.high = high
         self.step = step
-        self.value = value
+        self.value = max(low, min(high, value))
         self.bipolar = bipolar
         self._on_change = on_change
         self._dragging = False
@@ -230,3 +230,21 @@ class SliderRow(Gtk.Box):
     def set_value(self, value):
         self.slider.set_value(value)
         self._render(value)
+
+
+class ControlRows(Gtk.Box):
+    """Slider rows for a plugin's controls, minus any the panel draws itself."""
+
+    def __init__(self, effect, controls, on_change):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.rows = {}
+        for control in controls:
+            row = SliderRow(
+                control.label, "", control.minimum, control.maximum,
+                control.default, control.step, control.unit,
+                lambda value, c=control: on_change(effect, c, value),
+                bipolar=(control.minimum < 0 < control.maximum),
+                digits=0 if control.step >= 1 else 1,
+            )
+            self.rows[control.port] = row
+            self.append(row)
