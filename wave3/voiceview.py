@@ -7,6 +7,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
+from . import layout  # noqa: E402
 from . import voice  # noqa: E402
 from .gamewidgets import SliderRow  # noqa: E402
 
@@ -113,7 +114,8 @@ class VoicePage(Gtk.Box):
         self.controls.append(footer)
         body.append(self.controls)
 
-        clamp = Adw.Clamp(maximum_size=880, tightening_threshold=680)
+        clamp = Adw.Clamp(maximum_size=layout.CONTENT_WIDTH,
+                          tightening_threshold=layout.TIGHTENING)
         clamp.set_child(body)
 
         scroller = Gtk.ScrolledWindow()

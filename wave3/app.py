@@ -18,6 +18,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import deck  # noqa: E402
 from . import fx  # noqa: E402
+from . import layout  # noqa: E402
 from . import mixer  # noqa: E402
 from . import presetbar  # noqa: E402
 from . import protocol as p  # noqa: E402
@@ -34,7 +35,6 @@ POLL_MS = 100
 WRITE_DEBOUNCE_MS = 180
 
 # Wider than Adwaita's 600px default so a maximised window is not mostly empty.
-CONTENT_WIDTH = 1040
 GROUPS = ("Microphone", "Monitoring", "Device")
 
 STATE_DIR = os.path.join(
@@ -225,7 +225,8 @@ class Window(Adw.ApplicationWindow):
         groups.set_margin_start(18)
         groups.set_margin_end(18)
 
-        page_clamp = Adw.Clamp(maximum_size=CONTENT_WIDTH, tightening_threshold=680)
+        page_clamp = Adw.Clamp(maximum_size=layout.CONTENT_WIDTH,
+                               tightening_threshold=layout.TIGHTENING)
         page_clamp.set_child(groups)
 
         page = Gtk.ScrolledWindow()
