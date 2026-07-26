@@ -8,11 +8,11 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
 
 from . import deck  # noqa: E402
+from . import layout  # noqa: E402
 
 # Every group wraps at the same column count, otherwise groups with different
 # item counts flow to different widths and the deck's right edge goes ragged.
 MAX_COLUMNS = 4
-CONTENT_WIDTH = 1040
 REFRESH_MS = 250
 SHORTCUT_KEYS = "1234567890"
 
@@ -91,7 +91,8 @@ class DeckPage(Gtk.Box):
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroller.set_vexpand(True)
 
-        clamp = Adw.Clamp(maximum_size=CONTENT_WIDTH, tightening_threshold=700)
+        clamp = Adw.Clamp(maximum_size=layout.CONTENT_WIDTH,
+                          tightening_threshold=layout.TIGHTENING)
         column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
         column.set_margin_top(20)
         column.set_margin_bottom(20)

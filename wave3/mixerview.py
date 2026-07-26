@@ -7,7 +7,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
-from . import meters, mixer  # noqa: E402
+from . import layout, meters, mixer  # noqa: E402
 from .widgets import ChannelStrip, MasterMeter, prefers_reduced_motion  # noqa: E402
 
 APPLY_DEBOUNCE_MS = 60
@@ -19,7 +19,6 @@ MIN_STRIP_HEIGHT = 360
 MAX_STRIP_HEIGHT = 520
 
 # Bus meters clamp separately - they are horizontal and need far less width.
-MASTER_WIDTH = 1180
 
 # Applications start attenuated so the mic sits above them; the mic starts at
 # unity because its level belongs to the hardware gain knob.
@@ -40,6 +39,11 @@ class MixerPage(Gtk.Box):
         self._reduced = prefers_reduced_motion()
 
         masters = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        # Margins go inside the clamp, as on every other page, so the content
+        # edges line up when you switch tabs.
+        masters.set_margin_top(14)
+        masters.set_margin_start(18)
+        masters.set_margin_end(18)
         self.master_meters = {}
         for mix in mixer.MIXES:
             meter = MasterMeter(f"{MIX_LABELS[mix]} MIX")
@@ -48,11 +52,9 @@ class MixerPage(Gtk.Box):
             masters.append(meter)
 
         # A bus meter spanning a full-width window is unreadable.
-        master_clamp = Adw.Clamp(maximum_size=MASTER_WIDTH, tightening_threshold=720)
+        master_clamp = Adw.Clamp(maximum_size=layout.CONTENT_WIDTH,
+                                 tightening_threshold=layout.TIGHTENING)
         master_clamp.set_child(masters)
-        master_clamp.set_margin_top(14)
-        master_clamp.set_margin_start(18)
-        master_clamp.set_margin_end(18)
         self.append(master_clamp)
         self.append(Gtk.Separator(margin_top=14))
 

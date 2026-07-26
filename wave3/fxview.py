@@ -15,13 +15,13 @@ from . import compview  # noqa: E402
 from . import eq  # noqa: E402
 from . import eqview  # noqa: E402
 from . import fx  # noqa: E402
+from . import layout  # noqa: E402
 from . import presetbar  # noqa: E402
 from . import presets  # noqa: E402
 from .gamewidgets import SliderRow  # noqa: E402
 from . import thresholdview  # noqa: E402
 
 APPLY_DEBOUNCE_MS = 80
-DETAIL_WIDTH = 1180
 
 
 class StageButton(Gtk.Box):
@@ -172,7 +172,8 @@ class FxPage(Gtk.Box):
         self.detail.set_margin_start(18)
         self.detail.set_margin_end(18)
 
-        detail_clamp = Adw.Clamp(maximum_size=DETAIL_WIDTH, tightening_threshold=760)
+        detail_clamp = Adw.Clamp(maximum_size=layout.CONTENT_WIDTH,
+                                 tightening_threshold=layout.TIGHTENING)
         detail_clamp.set_child(self.detail)
 
         scroller = Gtk.ScrolledWindow()
