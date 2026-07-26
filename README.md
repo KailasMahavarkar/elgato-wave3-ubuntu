@@ -171,6 +171,43 @@ The EQ curve ([Equaliser screen](docs/images/eq.png)) is computed from RBJ cookb
 
 </details>
 
+## 🩺 Troubleshooting
+
+```bash
+wave3 doctor
+```
+
+Reports the capture stream, USB control, and whether the topology is installed - and recovers a wedged microphone if it finds one.
+
+<details>
+<summary><b>The microphone goes silent and nothing is logged</b></summary>
+
+The Wave:3 capture stream can wedge. USB reports the stream running, ALSA reports the substream `RUNNING`, and the hardware pointer never advances - not one period ever arrives:
+
+```
+state: RUNNING          <- claims running
+trigger_time: 425.3     <- started 47 minutes ago
+hw_ptr      : 0         <- never advanced
+avail_max   : 0         <- never received a period
+```
+
+Every meter then reads a confident `-90 dB`, which is indistinguishable from silence.
+
+PipeWire would normally clear this by suspending the idle device and re-opening it. The WirePlumber rule this project ships disables suspend to stop a *different* failure - where the capsule suspends and then serves digital silence - which removes that accidental recovery path. So recovery is deliberate: a watchdog reads `hw_ptr` from `/proc/asound` twice a second and cycles the card profile when it stops moving. It runs automatically while the app is open, and the app tells you when it fires.
+
+To recover by hand:
+
+```bash
+wave3 doctor          # detects and fixes it
+# or
+pactl set-card-profile alsa_card.usb-Elgato_Systems_Elgato_Wave_3_<serial>-00 off
+pactl set-card-profile alsa_card.usb-Elgato_Systems_Elgato_Wave_3_<serial>-00 output:analog-stereo+input:mono-fallback
+```
+
+Detection reads the hardware pointer rather than inferring from audio levels, because "no samples arriving" and "silence" look identical at the PipeWire layer and only one of them is a fault.
+
+</details>
+
 ## 🧪 Tests
 
 ```bash
@@ -182,6 +219,7 @@ make test
 | `test_mix_isolation.py` | Stream and Monitor carry genuinely independent levels |
 | `test_meters.py` | Every metered device actually carries audio |
 | `test_ui_race.py` | One toggle produces one visual transition, no bounce |
+| `test_watchdog.py` | A wedged capture stream is detected and recovered, a healthy one is left alone |
 
 Three bugs made meters read a confident `-90 dB`, which is worse than an obviously broken meter because it looks like silence: `parecord`'s two-second default buffer, the capsule suspending and then serving digital silence, and a sink named `wave3.monitor` producing a `wave3.monitor.monitor` source that PulseAudio cannot resolve by name. All three are covered by `test_meters.py`.
 

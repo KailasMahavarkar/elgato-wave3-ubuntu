@@ -6,6 +6,7 @@ self-sufficient without the source-tree Makefile.
 """
 
 import argparse
+import os
 import sys
 
 from . import __version__
@@ -54,6 +55,42 @@ def _uninstall_fx():
     print("effects rack removed" if removed else "no effects rack installed")
 
 
+def _doctor():
+    """Report on the parts that fail silently."""
+    from . import fx, mixer, watchdog
+
+    card = watchdog.find_card()
+    print(f"Wave:3 on USB:      {'card ' + card if card else 'NOT FOUND'}")
+    if card is None:
+        sys.exit("Connect the microphone and try again.")
+
+    healthy, message = watchdog.check_once()
+    print(f"Capture stream:     {message}")
+
+    try:
+        from .device import Wave3
+        dev = Wave3()
+        dev.open()
+        info = dev.read_version()
+        print(f"USB control:        ok (firmware {info.get('firmware', '?')}, "
+              f"serial {info.get('serial', '?')})")
+    except Exception as exc:
+        print(f"USB control:        FAILED - {exc}")
+
+    print(f"Mixer topology:     {'installed' if os.path.exists(mixer.CONF_PATH) else 'NOT installed'}")
+    print(f"Effects rack:       {'installed' if fx.installed() else 'NOT installed'}")
+
+    if not healthy:
+        print()
+        print("The capture stream is wedged. Recovering...")
+        if watchdog.recover():
+            ok, message = watchdog.check_once()
+            print(f"After recovery:     {message}")
+        else:
+            print("Recovery failed. Replug the microphone.")
+        sys.exit(0 if ok else 1)
+
+
 def _setup():
     _install_mixer()
     _install_fx()
@@ -64,6 +101,7 @@ def main(argv=None):
     parser.add_argument("--version", action="version", version=f"wave3 {__version__}")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("setup", help="install the mixer topology and effects rack")
+    sub.add_parser("doctor", help="diagnose the capture stream and USB control")
     sub.add_parser("install-mixer", help="install the PipeWire mixer topology")
     sub.add_parser("uninstall-mixer", help="remove the PipeWire mixer topology")
     sub.add_parser("install-fx", help="install the mic effects rack")
@@ -73,6 +111,7 @@ def main(argv=None):
 
     handlers = {
         "setup": _setup,
+        "doctor": _doctor,
         "install-mixer": _install_mixer,
         "uninstall-mixer": _uninstall_mixer,
         "install-fx": _install_fx,

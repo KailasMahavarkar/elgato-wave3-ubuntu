@@ -21,6 +21,7 @@ from . import deck  # noqa: E402
 from . import fx  # noqa: E402
 from . import mixer  # noqa: E402
 from . import protocol as p  # noqa: E402
+from . import watchdog  # noqa: E402
 from .device import DeviceError, GuardViolation, PermissionError_, Wave3  # noqa: E402
 from .deckview import DeckPage  # noqa: E402
 from .fxview import FxPage  # noqa: E402
@@ -317,6 +318,14 @@ class Window(Adw.ApplicationWindow):
         except Exception as exc:
             self._flash(f"Deck unavailable: {exc}")
 
+        # The Wave:3 capture stream can wedge: USB and ALSA both report it
+        # running while the hardware pointer never advances, so every meter
+        # reads a silent -90 dB with nothing in any log. Suspend-based
+        # recovery is disabled by our own WirePlumber rule, so recover here.
+        self.watchdog = watchdog.CaptureWatchdog(on_recover=self._on_recovered)
+        self.watchdog.start()
+        self.connect("close-request", self._on_close)
+
         # Mixer is the primary surface; the device page is a settings detour.
         if self.mixer_page is not None:
             self.stack.set_visible_child_name("mixer")
@@ -355,6 +364,19 @@ class Window(Adw.ApplicationWindow):
             self._alert_banner(f"Version read failed: {exc}")
 
         GLib.timeout_add(POLL_MS, self._poll)
+
+    def _on_recovered(self, count):
+        """Called from the watchdog thread when a wedged capture is restarted."""
+        GLib.idle_add(
+            self._flash,
+            f"Microphone capture had stalled and was restarted "
+            f"({count} time{'s' if count > 1 else ''} this session)",
+            6,
+        )
+
+    def _on_close(self, *_args):
+        self.watchdog.stop()
+        return False
 
     def _mixer_missing(self, reason):
         page = Adw.PreferencesPage()
