@@ -99,7 +99,7 @@ RNNoise is GPL-3 and not packaged for Ubuntu, so it cannot ship inside the `.deb
 </tr>
 <tr>
 <td><img src="docs/images/eq.png" alt="The EQ curve editor with six draggable coloured band nodes"><br><b>Equaliser</b> - drag the dots. The curve you see is the curve you hear</td>
-<td><img src="docs/images/compressor.png" alt="The compressor, showing a scrolling waveform with a draggable threshold line"><br><b>Compressor</b> - watch your voice go by and set the threshold against it</td>
+<td><img src="docs/images/compressor.png" alt="The compressor: a scrolling waveform with a draggable threshold line, above sliders for ratio, attack, release and makeup"><br><b>Compressor</b> - drag the threshold against your own voice, then shape it with ratio, attack, release and makeup</td>
 </tr>
 <tr>
 <td><img src="docs/images/gate.png" alt="The noise gate, showing a threshold marker over a live level meter"><br><b>Noise gate</b> - set the threshold against your actual room</td>
