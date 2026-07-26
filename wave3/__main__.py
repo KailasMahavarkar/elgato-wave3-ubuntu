@@ -54,6 +54,27 @@ def _uninstall_fx():
     print("effects rack removed" if removed else "no effects rack installed")
 
 
+def _panel_running():
+    """True when another wave3 GUI already holds the USB endpoint."""
+    import subprocess
+    try:
+        out = subprocess.run(["ps", "-eo", "pid,args"],
+                             capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    mine = str(os.getpid())
+    for line in out.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) != 2 or parts[0] == mine:
+            continue
+        args = parts[1]
+        if "wave3" in args and "doctor" not in args and (
+            args.endswith("-m wave3") or args.rstrip().endswith("/wave3")
+        ):
+            return True
+    return False
+
+
 def _doctor():
     """Report on the parts that fail silently."""
     from . import fx, mixer, watchdog
@@ -74,7 +95,12 @@ def _doctor():
         print(f"USB control:        ok (firmware {info.get('firmware', '?')}, "
               f"serial {info.get('serial', '?')})")
     except Exception as exc:
-        print(f"USB control:        FAILED - {exc}")
+        if _panel_running():
+            # Control transfers do not multiplex; the panel owns the endpoint
+            # while it is open. That is expected, not a fault.
+            print("USB control:        in use by the running wave3 panel")
+        else:
+            print(f"USB control:        FAILED - {exc}")
 
     print(f"Mixer topology:     {'installed' if os.path.exists(mixer.CONF_PATH) else 'NOT installed'}")
     print(f"Effects rack:       {'installed' if fx.installed() else 'NOT installed'}")
