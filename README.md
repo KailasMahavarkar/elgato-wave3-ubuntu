@@ -39,6 +39,7 @@ If you stream or record on Linux and you own a Wave:3, this should feel like the
 | 🎨 **An EQ you can actually use** | Six bands on Elgato's own frequency zones - Rumble, Boom, Boxy, Nasal, Presence, Air - recovered from Wave Link itself. Drag the dots |
 | 🔊 **Gate, compressor, limiter** | Running as LADSPA plugins inside PipeWire itself, so there is no extra process and no added latency |
 | 🎯 **Presets that follow the guidance** | Broadcast, Warm, Bright, Gentle, Heavy and friends, with values taken from published spoken-word practice rather than invented. One click to Reset any effect, or everything at once |
+| 🗣️ **Voice mode** | One switch and five plain controls - Noise removal, De-ess, Warmth, Presence, Leveling - driving a six-stage chain. Uses RNNoise for AI noise suppression when it is available |
 | ⚡ **A deck for live use** | Big tiles with number-key shortcuts for the things you need mid-stream, including a one-press panic mute |
 | 📹 **Works with OBS** | Your Stream Mix shows up as an ordinary capture source |
 
@@ -67,6 +68,15 @@ systemctl --user restart wireplumber pipewire   # pick up the new rules
 wave3 setup                                     # build the mixer and effects rack
 wave3                                           # or launch it from your app menu
 ```
+
+**Optional, for AI noise suppression:**
+
+```bash
+sudo apt install git cmake build-essential
+packaging/build-rnnoise.sh
+```
+
+RNNoise is GPL-3 and not packaged for Ubuntu, so it is not in the `.deb`. Voice mode detects it at runtime and falls back to a multiband spectral gate without it.
 
 Then in OBS, add an **Audio Input Capture** and choose **Monitor of Wave:3 Stream Mix**. That is your finished mix, minus anything you have kept out of it.
 
@@ -333,6 +343,7 @@ make test
 | `test_meters.py` | Every meter is reading actual audio |
 | `test_ui_race.py` | One toggle gives one clean transition, no bouncing |
 | `test_watchdog.py` | A stalled capture is spotted and recovered, a healthy one is left alone |
+| `test_voice.py` | Every voice control moves the chain, stays in range, and bypasses at zero |
 | `test_presets.py` | Every preset is in range and Reset really restores the defaults |
 
 Most of these exist because something was quietly broken. Three separate bugs once made every meter read a confident `-90 dB`: `parecord`'s two-second default buffer, the capsule suspending and serving silence, and a sink named `wave3.monitor` producing a `wave3.monitor.monitor` source that PulseAudio cannot resolve by name. All three are covered now.
